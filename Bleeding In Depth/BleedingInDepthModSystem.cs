@@ -1,0 +1,76 @@
+﻿using BleedingInDepth.config;
+using BleedingInDepth.lib;
+using System;
+using System.Collections.Generic;
+using Vintagestory.API.Client;
+using Vintagestory.API.Common;
+using Vintagestory.API.Common.CommandAbbr;
+using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
+using Vintagestory.API.Server;
+using Vintagestory.GameContent;
+
+namespace BleedingInDepth
+{
+    public class BleedingInDepthModSystem : ModSystem
+    {
+        internal static ICoreAPI API; //provides globally used API callers
+        internal static ICoreClientAPI clientAPI;
+        internal static ICoreServerAPI serverAPI;
+
+
+
+        public override void StartPre(ICoreAPI api)
+        {
+            base.StartPre(api); //these are unneeded but im leaving them here just in case
+            API ??= api; //KEEP THIS FIRST
+
+            BID_Config_Manager.Config_Conjure();
+            Config_Reference.Config_Loaded ??= new Config_Reference(); //one last attempt to rebuild config from default
+        }
+
+        // Called on server and client; Useful for registering block/entity classes on both sides
+        public override void Start(ICoreAPI api)
+        {
+            base.Start(api);
+            if (Config_Reference.Config_Loaded is null) { return; } //if config fails to load do not run any mod code
+
+            api.RegisterEntityBehaviorClass("bleed", typeof(BID_Lib_EntityManager.EntityBehavior_Bleed));
+            api.Event.OnEntityLoaded += BID_Lib_EntityManager.EntityBehavior_Bleed.Entity_AddBleedBehavior;
+            api.Event.OnEntitySpawn += BID_Lib_EntityManager.EntityBehavior_Bleed.Entity_AddBleedBehavior;
+        }
+
+        public override void StartServerSide(ICoreServerAPI api)
+        {
+            base.StartServerSide(api);
+            serverAPI ??= api; //KEEP THIS FIRST
+            if (Config_Reference.Config_Loaded is null) { return; } //if config fails to load do not run any mod code
+
+            BID_Lib_CollectionManager.Dicitionary_Freeze();
+
+            //commands
+            serverAPI.ChatCommands.GetOrCreate("MakeBleed")//TODO: add more commands
+                .WithDesc("Increases targets bleed level")
+                .RequiresPlayer()
+                .RequiresPrivilege(Privilege.root)
+                .WithArgs(new ICommandArgumentParser[] { serverAPI.ChatCommands.Parsers.OptionalFloat("bleed amount", 0.1f), serverAPI.ChatCommands.Parsers.OptionalBool("internal?", "internal") })
+                .HandleWith(BID_Lib_CommandManager.MakeBleed);
+        }
+
+        public override void StartClientSide(ICoreClientAPI api)
+        {
+            base.StartClientSide(api);
+            clientAPI ??= api; //KEEP THIS FIRST
+
+            if (Config_Reference.Config_Loaded is null) { return; } //if config fails to load do not run any mod code
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            BID_Lib_FunctionsGeneral.Log_Debug("Unloading Config", loggers: []);
+            BID_Config_Manager.Config_Unload();
+        }
+    }
+}

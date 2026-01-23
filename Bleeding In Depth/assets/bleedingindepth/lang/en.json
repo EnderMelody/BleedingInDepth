@@ -1,0 +1,17 @@
+{
+  "hello": "hello from Bleeding In Depth!",
+
+  //bleed report
+  //bleed report ondamage
+  "damagelog_BleedNotify_Detailed": "Gained {1:0.##} bleed through {0}",
+  "damagelog_BleedNotify_Detailed_Internal": "(and {0:0.##} internal bleed)",
+  "damagelog_BleedNotify_Vague": "Gained {1} bleed through {0}",
+  "damagelog_BleedNotify_Vague_Internal": "(and you gained internal bleeding)" //do this better
+
+  //bleed report oncheck
+
+
+
+  //debug
+  //config debug
+}

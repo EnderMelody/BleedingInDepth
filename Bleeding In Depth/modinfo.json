@@ -1,0 +1,14 @@
+{
+  "$schema": "https://moddbcdn.vintagestory.at/schema/modinfo.latest.json",
+  "type": "Code",
+  "modid": "bleedingindepth",
+  "name": "Bleeding In Depth",
+  "authors": [
+    "EnderMelody"
+  ],
+  "description": "Adds a bleeding system with in depth mechanics.",
+  "version": "0.0.3",
+  "dependencies": {
+    "game": ""
+  }
+}
