@@ -67,13 +67,13 @@ namespace BleedingInDepth.lib
 
                 //size
                 float particle_SizeBase = Config_Reference.Config_Loaded.Config_Effect.VFX_BloodSplash_Acc.Particle_SizeMulti_Base;
-                float particle_SizeMulti = BID_Lib_FunctionsGeneral.Calc_Curve_SingleSigmoid(entity_BleedBehavior.Bleed_CurrentLevel_External * 4f, 1.2f, 2f, 2.4f, 1f); //TODO: expose these in config
+                float particle_SizeMulti = BID_Lib_FunctionsGeneral.Calc_Curve_SingleSigmoid(entity_BleedBehavior.Bleed_CurrentLevel_External * 4f, 1.2f, 2f, 2.4f, 1f);
 
 
                 Particle_Blood_Splash particle_BloodProps = new(entity)
                 {
                     Quantity = NatFloat.createUniform(MathF.Max(particle_Amount - particle_SizeMulti, 1f), particle_Amount / 4f),
-                    Size = NatFloat.createUniform(particle_SizeMulti * particle_SizeBase, particle_SizeMulti * particle_SizeBase / 5f),//TODO: too much variance, WHY?
+                    Size = NatFloat.createUniform(particle_SizeMulti * particle_SizeBase, particle_SizeMulti * particle_SizeBase / 5f),
                     Velocity = [NatFloat.createUniform(MathF.Sin(attackedDirection_Yaw) * 1f, 0.6f), NatFloat.createUniform(1.6f, 0.2f), NatFloat.createUniform(MathF.Cos(attackedDirection_Yaw) * 1f, 0.6f)]//TODO: add slight variation (based on damagetype)
                 };
                 entity.Api.World.SpawnParticles(particle_BloodProps);
@@ -146,3 +146,4 @@ namespace BleedingInDepth.lib
         }
     }
 }
+
