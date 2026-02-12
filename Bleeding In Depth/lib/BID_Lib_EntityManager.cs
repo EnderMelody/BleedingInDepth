@@ -1,5 +1,7 @@
 ﻿using BleedingInDepth.config;
+using HarmonyLib;
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -28,6 +30,7 @@ namespace BleedingInDepth.lib
             internal float health_PreDamage;
             internal float deltaTimeSum;
             internal float tickCounter_Client;
+            internal FrozenDictionary<string, float>? categoryType_Dict;
             internal List<float> attackedDirection_List = [];
 
 
@@ -35,13 +38,18 @@ namespace BleedingInDepth.lib
             internal ITreeAttribute State_SyncTree_Bleed
             {
                 get => entity.WatchedAttributes.GetOrAddTreeAttribute("BID_Tree_Bleed");
-                set => entity.WatchedAttributes.SetAttribute("BID_Tree_Bleed", value);
+                set
+                {
+                    if (API.Side is not EnumAppSide.Server) { return; }
+                    entity.WatchedAttributes.SetAttribute("BID_Tree_Bleed", value);
+                }
             }
             internal float Bleed_CurrentLevel_External
             {
                 get => State_SyncTree_Bleed.GetFloat("BID_Bleed_CurrentLevel_External");
                 set
                 {
+                    if (API.Side is not EnumAppSide.Server) { return; }
                     State_SyncTree_Bleed.SetFloat("BID_Bleed_CurrentLevel_External", value);
                     entity.WatchedAttributes.MarkPathDirty("BID_Tree_Bleed");
                 }
@@ -51,6 +59,7 @@ namespace BleedingInDepth.lib
                 get => State_SyncTree_Bleed.GetFloat("BID_Bleed_CurrentLevel_Internal");
                 set
                 {
+                    if (API.Side is not EnumAppSide.Server) { return; }
                     State_SyncTree_Bleed.SetFloat("BID_Bleed_CurrentLevel_Internal", value);
                     entity.WatchedAttributes.MarkPathDirty("BID_Tree_Bleed");
                 }
@@ -59,28 +68,31 @@ namespace BleedingInDepth.lib
             internal ITreeAttribute State_States_SyncTree
             {
                 get => entity.WatchedAttributes.GetOrAddTreeAttribute("BID_SyncTree_State");
-                set => entity.WatchedAttributes.SetAttribute("BID_SyncTree_State", value);
-            }
-            internal float State_BleedReduction
-            {
-                get => State_States_SyncTree.GetFloat("BID_State_BleedReduction");
                 set
                 {
-                    State_States_SyncTree.SetFloat("BID_State_BleedReduction", value);
+                    if (API.Side is not EnumAppSide.Server) { return; }
+                    entity.WatchedAttributes.SetAttribute("BID_SyncTree_State", value);
+                }
+            }
+            internal int State_BleedReductionFlag //bit placement: 0=pressure, 1=care, 2=ragged, 3=bandaged, 4=stitched
+            {
+                get => State_States_SyncTree.GetInt("BID_State_Flag_BleedReduction");
+                set
+                {
+                    if (API.Side is not EnumAppSide.Server) { return; }
+                    State_States_SyncTree.SetInt("BID_State_Flag_BleedReduction", value);
                     entity.WatchedAttributes.MarkPathDirty("BID_SyncTree_State");
                 }
             }
-
-            //unsynced states
-            internal bool State_IsRagged
+            internal string State_EntityCategory
             {
-                get => entity.Attributes.GetBool("BID_State_IsRagged");
-                set => entity.Attributes.SetBool("BID_State_IsRagged", value);
-            }
-            internal bool State_IsBandaged
-            {
-                get => entity.Attributes.GetBool("BID_State_IsBandaged");
-                set => entity.Attributes.SetBool("BID_State_IsBandaged", value);
+                get => State_States_SyncTree.GetString("BID_State_EntityCategory");
+                set
+                {
+                    if (API.Side is not EnumAppSide.Server) { return; }
+                    State_States_SyncTree.SetString("BID_State_EntityCategory", value);
+                    entity.WatchedAttributes.MarkPathDirty("BID_SyncTree_State");
+                }
             }
 
 
@@ -92,9 +104,10 @@ namespace BleedingInDepth.lib
                 {
                     if (entity.IsCreature && entity.GetBehavior<EntityBehavior_Bleed>() is null)
                     {
-                        EntityBehavior_Bleed EntityBleedable = new(entity);
-                        entity.AddBehavior(EntityBleedable);
-                        EntityBleedable.AfterInitialized(false);//TODO: see if there is a way to guarentee (my) afterinitialized is called after all behaviors are already set (apply mine last) -> isFirstTick() ?
+                        EntityBehavior_Bleed Entity_BehaviorBleed = new(entity);
+                        entity.AddBehavior(Entity_BehaviorBleed);
+                        Entity_BehaviorBleed.AfterInitialized(false);//TODO: see if there is a way to guarentee (my) afterinitialized is called after all behaviors are already set (apply mine last) -> isFirstTick() ?
+                        //Entity_BehaviorBleed.State_BleedReductionFlag ??= [0];
                     }
                 }
             }
@@ -110,7 +123,7 @@ namespace BleedingInDepth.lib
                     case EnumAppSide.Server:
                         {
                             if (API.ModLoader.GetMod("combatoverhaul") is not null) //TODO: create a list with any mod that changes damageTypes to not just blunt, then check if any of the mods are loaded and apply enable damagetypes
-                            {
+                            {//TODO: move this check to server start
                                 Config_Reference.Config_Loaded.Config_System.System_BleedDamage_Acc.UseDamageTypeCompat = true;
                             }
                             entity_BehaviorHealth.onDamaged += BID_DelegateTo_BleedConversion; //TODO: find a way to recognize if damagetypes are used (through CO or other mods) and autoset compat instead of using a list of mods

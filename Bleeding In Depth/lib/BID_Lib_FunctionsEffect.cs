@@ -11,6 +11,7 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.Server;
+using static BleedingInDepth.lib.BID_Lib_EntityManager;
 
 namespace BleedingInDepth.lib
 {
@@ -43,11 +44,19 @@ namespace BleedingInDepth.lib
                 if (!Config_Reference.Config_Loaded.Config_Effect.VFX_Bleeding_Acc.Particle_Toggle || !Config_Reference.Config_Loaded.Config_System.System_Effects_Acc.Effects_MasterToggle) { return; }
                 if (entity.GetBehavior<BID_Lib_EntityManager.EntityBehavior_Bleed>() is not BID_Lib_EntityManager.EntityBehavior_Bleed entity_BleedBehavior) { return; }
 
-                float particle_CurrentDPS = Config_Reference.Config_Loaded.Config_Rate.Rate_BleedDamage_External * entity_BleedBehavior.Bleed_CurrentLevel_External;
+                float state_BleedReduction = 0f;
+                float particle_CurrentDPS = Config_Reference.Config_Loaded.Config_Rate.Rate_Bleed_Acc.Damage_External * entity_BleedBehavior.Bleed_CurrentLevel_External;
+                float entity_ActivityMulti = 1f + ((entity.Pos.Motion.HorLength() > 0) ? Config_Reference.Config_Loaded.Config_Rate.Rate_Activity_Acc.ActivityMulti_Walk : 0f);
+                if (entity is EntityPlayer entityPlayer) //AcitivityMulti for player specific actions
+                {
+                    entity_ActivityMulti += (entityPlayer.Controls.Sprint) ? Config_Reference.Config_Loaded.Config_Rate.Rate_Activity_Acc.ActivityMulti_Sprint : 0f;
+                    entity_ActivityMulti += (entityPlayer.Controls.LeftMouseDown) ? Config_Reference.Config_Loaded.Config_Rate.Rate_Activity_Acc.ActivityMulti_Hit : 0f;
+                }
+                
 
                 //amount
                 float particle_Amount = (NatFloat.createUniform(BID_Lib_FunctionsGeneral.Calc_Curve_ExpoEaseOut(
-                    particle_CurrentDPS * 5f,
+                    particle_CurrentDPS * entity_ActivityMulti * 5f,
                     Config_Reference.Config_Loaded.Config_Effect.VFX_Bleeding_Acc.Particle_AmtMulti_SlopeRate,
                     Config_Reference.Config_Loaded.Config_Effect.VFX_Bleeding_Acc.Particle_AmtMulti_Max,
                     0f, 0.5f), 1f).nextFloat());
@@ -61,8 +70,10 @@ namespace BleedingInDepth.lib
                     2.4f, 1f);
 
                 //reducer
+                state_BleedReduction += BID_Lib_FunctionsGeneral.Calc_Flag_CheckBit(entity_BleedBehavior.State_BleedReductionFlag, 0) ? Config_Reference.Config_Loaded.Config_HealBonus.HealBonus_BleedReduction_Care : (BID_Lib_FunctionsGeneral.Calc_Flag_CheckBit(entity_BleedBehavior.State_BleedReductionFlag, 1) ? Config_Reference.Config_Loaded.Config_HealBonus.HealBonus_BleedReduction_Pressure : 0f);
+                state_BleedReduction += BID_Lib_FunctionsGeneral.Calc_Flag_CheckBit(entity_BleedBehavior.State_BleedReductionFlag, 3) ? Config_Reference.Config_Loaded.Config_HealBonus.HealBonus_BleedReduction_Bandage : (BID_Lib_FunctionsGeneral.Calc_Flag_CheckBit(entity_BleedBehavior.State_BleedReductionFlag, 2) ? Config_Reference.Config_Loaded.Config_HealBonus.HealBonus_BleedReduction_Rag : 0f);
                 float particle_FarEntityDiv = (entity.Pos.SquareDistanceTo(clientAPI.World.Player.Entity.Pos) > MathF.Pow(Config_Reference.Config_Loaded.Config_Effect.VFX_Bleeding_Acc.Particle_SimDistance, 2f)) ? 3f : 1f;
-                float particle_Divider = MathF.Max((entity_BleedBehavior.State_BleedReduction) + (entity.Alive ? 0f : 5f) + (particle_SizeMulti - 1f), 1f) * particle_FarEntityDiv;
+                float particle_Divider = MathF.Max((state_BleedReduction) + (entity.Alive ? 0f : 5f) + (particle_SizeMulti - 1f), 1f) * particle_FarEntityDiv;
 
                 //velocity
                 float particle_AttackedDirection_Yaw = entity_BleedBehavior.attackedDirection_List.ElementAtOrDefault(Random.Shared.Next(entity_BleedBehavior.attackedDirection_List.Count));
@@ -73,7 +84,7 @@ namespace BleedingInDepth.lib
                     Quantity = NatFloat.createUniform((particle_Amount / particle_Divider), (MathF.Max((particle_Amount / particle_Divider), 3f) / 5f)),
                     Size = NatFloat.createUniform((particle_SizeMulti * particle_SizeBase), (particle_SizeMulti * particle_SizeBase) / 5f),
 
-                    Velocity = [NatFloat.createUniform(MathF.Sin(GameMath.NormaliseAngleRad(entity.Pos.Yaw + particle_AttackedDirection_Yaw)) * 0.3f, 0.2f), NatFloat.createUniform(0.5f, 0.2f), NatFloat.createUniform(MathF.Cos(GameMath.NormaliseAngleRad(entity.Pos.Yaw + particle_AttackedDirection_Yaw)) * 0.3f, 0.2f)],//if (entityPlayer.Controls.Sprint)
+                    Velocity = [NatFloat.createUniform(MathF.Sin(GameMath.NormaliseAngleRad(entity.Pos.Yaw + particle_AttackedDirection_Yaw)) * entity_ActivityMulti * 0.3f, 0.2f), NatFloat.createUniform(0.5f, 0.2f), NatFloat.createUniform(MathF.Cos(GameMath.NormaliseAngleRad(entity.Pos.Yaw + particle_AttackedDirection_Yaw)) * entity_ActivityMulti * 0.3f, 0.2f)],//if (entityPlayer.Controls.Sprint)
                     basePos = entity.Pos.XYZ.Add(0f, entity.SelectionBox.Height / 1.5f, 0f),
                 };
                 entity.Api.World.SpawnParticles(particle_BloodProps);

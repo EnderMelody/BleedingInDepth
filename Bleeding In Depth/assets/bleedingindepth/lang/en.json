@@ -9,5 +9,8 @@
 
   //bleed report - oncheck
   "damageReport_BleedNotify_External": "{1} has {0:0.##} external bleed", //0: bleed level, 1: target
-  "damageReport_BleedNotify_Internal": " and {0:0.##} internal bleed"
+  "damageReport_BleedNotify_Internal": " and {0:0.##} internal bleed",
+
+  //config
+
 }
