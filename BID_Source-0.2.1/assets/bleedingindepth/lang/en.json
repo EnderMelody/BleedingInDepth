@@ -1,0 +1,16 @@
+{
+  "hello": "hello from Bleeding In Depth!",
+
+  //bleed report
+  //bleed report - ondamage
+  "damageLog_BleedNotify_External": "Recieved {0:0.##} external bleed",
+  "damageLog_BleedNotify_Internal": " and {0:0.##} internal bleed",
+  "damageLog_BleedNotify_Cauterize": "Cauterized external bleeding by {0}!",
+
+  //bleed report - oncheck
+  "damageReport_BleedNotify_External": "{1} has {0:0.##} external bleed", //0: bleed level, 1: target
+  "damageReport_BleedNotify_Internal": " and {0:0.##} internal bleed",
+
+  //config
+
+}
