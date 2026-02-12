@@ -170,17 +170,6 @@ namespace BleedingInDepth.config
                     new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_DPS_Trivial, Severity = "Trivial" }
                     ]);
                 }
-                if (Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_GainedBleed_SeverityThreashold is null || Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_GainedBleed_SeverityThreashold.Count == 0)
-                {
-                    API.Logger.Debug("[BleedingInDepth]: (Config_ValidateList) Defaulted List_BleedReport_GainedBleed_SeverityThreashold");
-                    Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_GainedBleed_SeverityThreashold = [];
-                    Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_GainedBleed_SeverityThreashold.AddRange([
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_GainedBleed_Severe, Severity = "Severe" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_GainedBleed_Moderate, Severity = "Moderate" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_GainedBleed_Minor, Severity = "Minor" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_GainedBleed_Trivial, Severity = "Trivial" }
-                    ]);
-                }
             }
             catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_ValidateList) Exception caught: {0}", [e.Message]); }
             API.Logger.Debug("[BleedingInDepth]: (Config_ValidateList) Complete");

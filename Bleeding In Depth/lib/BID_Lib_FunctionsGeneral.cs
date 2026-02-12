@@ -45,5 +45,20 @@ namespace BleedingInDepth.lib
             if (returnValue > (max * 0.98f) + offset_Y) { return max + offset_Y; }
             return returnValue;
         }
+
+        internal static int Calc_Flag_SetBit(int valueToMask, byte bitIndex, bool bitOnOrOff)
+        {
+            byte byteMask = (byte)(1 << bitIndex);
+            if (bitOnOrOff)
+            { valueToMask |= byteMask; }
+            else { valueToMask &= (byte)~byteMask; }
+
+            return valueToMask;
+        }
+
+        internal static bool Calc_Flag_CheckBit(int valueToMask, byte bitIndex)
+        {
+            return (valueToMask & (1 << bitIndex)) is not 0;
+        }
     }
 }
