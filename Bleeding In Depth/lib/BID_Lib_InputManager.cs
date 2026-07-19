@@ -38,7 +38,7 @@ namespace BleedingInDepth.lib
 
                 if ((bool)args[2] && caller is EntityPlayer entityPlayer) { target = entityPlayer.EntitySelection?.Entity; }
                 if (target is null || !target.HasBehavior<EntityBehavior_Bleed>()) { target = caller; }
-                if (target.GetBehavior<EntityBehavior_Bleed>() is not EntityBehavior_Bleed entity_BleedBehavior) { return TextCommandResult.Error("entity was missing BehaviorBleed."); }
+                if (target.GetBehavior<EntityBehavior_Bleed>() is not EntityBehavior_Bleed entity_BleedBehavior) { return TextCommandResult.Error("entity was missing EntityBehavior_Bleed."); }
 
                 if (args[1] is not true)
                 { entity_BleedBehavior.Bleed_CurrentLevel_External += (float)args[0]; }
@@ -46,7 +46,7 @@ namespace BleedingInDepth.lib
                 entity_BleedBehavior.State_BleedReductionFlag = BID_Lib_FunctionsGeneral.Calc_Flag_SetBit(entity_BleedBehavior.State_BleedReductionFlag, 3, false); entity_BleedBehavior.State_BleedReductionFlag = BID_Lib_FunctionsGeneral.Calc_Flag_SetBit(entity_BleedBehavior.State_BleedReductionFlag, 2, false);
                 target.WatchedAttributes.MarkPathDirty("BID_SyncTree_State");
 
-                return TextCommandResult.Success($"{target.GetPrefixAndCreatureName()} gained {args[0]} {((bool)args[1] ? "external" : "internal")} bleed.");
+                return TextCommandResult.Success($"{target.GetName() ?? target.GetPrefixAndCreatureName()} gained {args[0]} {((bool)args[1] ? "internal" : "external")} bleed.");
             }
         }
 
