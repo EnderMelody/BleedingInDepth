@@ -56,8 +56,8 @@ namespace BleedingInDepth
                 .WithDesc("Increases targets bleed level")
                 //.RequiresPlayer()
                 .RequiresPrivilege(Privilege.commandplayer)
-                .WithArgs(new ICommandArgumentParser[] { serverAPI.ChatCommands.Parsers.OptionalFloat("bleed amount", 0.1f), serverAPI.ChatCommands.Parsers.OptionalBool("internal?", "internal"), serverAPI.ChatCommands.Parsers.OptionalBool("target looked entity?") })
-                .HandleWith(BID_Lib_InputManager.Handle_Command.Command_MakeBleed);
+                .HandleWith(BID_Lib_InputManager.Handle_Command.Command_MakeBleed)
+                .WithArgs(new ICommandArgumentParser[] { serverAPI.ChatCommands.Parsers.OptionalFloat("bleed amount", 0.1f), serverAPI.ChatCommands.Parsers.OptionalBool("internal?", "internal"), serverAPI.ChatCommands.Parsers.OptionalBool("target looked entity?", "entity") });
         }
 
         public override void StartClientSide(ICoreClientAPI api)
@@ -68,13 +68,13 @@ namespace BleedingInDepth
             if (!isConfigLoadSuccessful) { return; } //if config fails to load do not run any mod code
 
             //clientside commands; optionals pass false by default //TODO: lang files
-            serverAPI.ChatCommands.GetOrCreate("ReportBleed")
+            clientAPI.ChatCommands.GetOrCreate("ReportBleed")
                 .WithDesc("Reports targets bleed levels.")
                 .WithAdditionalInformation("Reports the selected entity's bleed levels (true) or your own bleed levels (false). Enforces config values in config: bleed report.")
                 .RequiresPlayer()
                 .RequiresPrivilege(Privilege.chat)
-                .WithArgs(new ICommandArgumentParser[] { serverAPI.ChatCommands.Parsers.OptionalBool("check looked at entity?") })
                 .HandleWith(BID_Lib_InputManager.Handle_Command.Command_ReportBleed)
+                .WithArgs(new ICommandArgumentParser[] { clientAPI.ChatCommands.Parsers.OptionalBool("check looked at entity?") })
                 .WithAlias(["BleedReport", "CheckBleed", "BleedCheck"]);
 
             //hotkeys

@@ -7,7 +7,7 @@
     "EnderMelody"
   ],
   "description": "Adds a bleeding system with in depth mechanics.",
-  "version": "0.1.1",
+  "version": "0.2.2",
   "dependencies": {
     "game": ""
   }
