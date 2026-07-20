@@ -1,13 +1,11 @@
-﻿using System;
+﻿using BleedingInDepth.config;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Vintagestory.API.Common;
-using BleedingInDepth;
-using BleedingInDepth.config;
-using BleedingInDepth.lib;
 
 namespace BleedingInDepth.lib
 {
@@ -16,10 +14,9 @@ namespace BleedingInDepth.lib
         private static ICoreAPI API = BID_VarRef.API;
 
 
-        //internal static void Log_Debug(string DebugOutput, object[] objects) { if (true) { API.Logger.Debug($"[BleedingInDepth]: {DebugOutput}: {(objects.Length > 0 ? objects[0] ?? "null" : "null")}"); }; } //old backup
-        internal static void Log_Debug(string DebugMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { if (Config_Reference.Config_Loaded?.Config_System?.System_Debug_Acc.DebugLogging ?? true) { API.Logger.Debug($"[BleedingInDepth]: ({caller}) {string.Format(DebugMessage, [.. loggers.Select(a => a ?? "null")])}"); } } catch(Exception e) { BID_Function_General.Log_Error("Caught exception: {0}", loggers: [e.Message]); } }
-        internal static void Log_Error(string ErrorMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { API?.Logger?.Error($"[BleedingInDepth]: ({caller}) {string.Format(ErrorMessage, [.. loggers.Select(a => a ?? "null")])}"); } catch(Exception e) { API.Logger.Error(e); } }
-        internal static void Log_Debug_Verbose(string DebugMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { if (Config_Reference.Config_Loaded?.Config_System?.System_Debug_Acc.DebugLogging_Verbose ?? true) { API.Logger.Debug($"[BleedingInDepth][V]: ({caller}) {string.Format(DebugMessage, [.. loggers.Select(a => a ?? "null")])}"); } } catch(Exception e) { BID_Function_General.Log_Error("Caught exception: {0}", loggers: [e.Message]); } }
+        internal static void Log_Debug(string DebugMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { if (Config_Reference.Config_Loaded?.Config_System?.System_Debug_Acc.DebugLogging ?? true) { API.Logger.Debug($"[{BID_VarRef.ModName_Trunc}]: ({caller}) {string.Format(DebugMessage, [.. loggers.Select(a => a ?? "null")])}"); } } catch (Exception e) { BID_Function_General.Log_Error("Caught exception: {0}", loggers: [e.Message]); } }
+        internal static void Log_Error(string ErrorMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { API?.Logger?.Error($"[{BID_VarRef.ModName_Trunc}]: ({caller}) {string.Format(ErrorMessage, [.. loggers.Select(a => a ?? "null")])}"); } catch (Exception e) { API.Logger.Error(e); } }
+        internal static void Log_Debug_Verbose(string DebugMessage, [CallerMemberName] string caller = "", params object[] loggers) { try { if (Config_Reference.Config_Loaded?.Config_System?.System_Debug_Acc.DebugLogging_Verbose ?? true) { API.Logger.Debug($"[{BID_VarRef.ModName_Trunc}][V]: ({caller}) {string.Format(DebugMessage, [.. loggers.Select(a => a ?? "null")])}"); } } catch (Exception e) { BID_Function_General.Log_Error("Caught exception: {0}", loggers: [e.Message]); } }
 
 
         internal static float Calc_Curve_SingleSigmoid(float x0, float rate, float max, float offset_X, float offset_Y)
@@ -46,6 +43,13 @@ namespace BleedingInDepth.lib
             return returnValue;
         }
 
+        /// <summary>
+        /// Sets a specific flag state through a mask
+        /// </summary>
+        /// <param name="valueToMask"></param>
+        /// <param name="bitIndex"></param>
+        /// <param name="bitOnOrOff"></param>
+        /// <returns></returns>
         internal static int Calc_Flag_SetBit(int valueToMask, byte bitIndex, bool bitOnOrOff)
         {
             byte byteMask = (byte)(1 << bitIndex);
@@ -56,6 +60,12 @@ namespace BleedingInDepth.lib
             return valueToMask;
         }
 
+        /// <summary>
+        /// check a specific flag state
+        /// </summary>
+        /// <param name="valueToMask"></param>
+        /// <param name="bitIndex"></param>
+        /// <returns></returns>
         internal static bool Calc_Flag_CheckBit(int valueToMask, byte bitIndex)
         {
             return (valueToMask & (1 << bitIndex)) is not 0;

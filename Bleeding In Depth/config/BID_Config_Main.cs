@@ -1,9 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using BleedingInDepth.lib;
+﻿using BleedingInDepth.handler;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Vintagestory.API.Common;
 
 namespace BleedingInDepth.config
@@ -65,13 +68,13 @@ namespace BleedingInDepth.config
             public class Variable_External
             {
                 public string Comment_BleedCurve = $"See mod page/formulas/bleed damage ticks";
-                [Range(0f, float.PositiveInfinity)] public float External_Rate { get; set; } = Default_External_Rate; public string Comment_External_Rate => $"Default: {Default_External_Rate}; Multiplier; Determines % of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] is applied to hp as damage per tick";
+                [Range(0f, float.PositiveInfinity)] public float External_Rate { get; set; } = Default_External_Rate; public string Comment_External_Rate => $"Default: {Default_External_Rate}; Multiplier; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] is applied to hp as damage per tick";
                 public const float Default_External_Rate = 0.09f;
-                [Range(0f, float.PositiveInfinity)] public float External_FlatHeal { get; set; } = Default_External_FlatHeal; public string Comment_External_FlatHeal => $"Default: {Default_External_FlatHeal}; Flat; Determines how much of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] is removed per tick";
+                [Range(0f, float.PositiveInfinity)] public float External_FlatHeal { get; set; } = Default_External_FlatHeal; public string Comment_External_FlatHeal => $"Default: {Default_External_FlatHeal}; Flat; Determines how much of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] is removed per tick";
                 public const float Default_External_FlatHeal = 0.035f;
-                [Range(0f, float.PositiveInfinity)] public float External_ScaledHeal { get; set; } = Default_External_ScaledHeal; public string Comment_External_ScaledHeal => $"Default: {Default_External_ScaledHeal}; Multipler; Determines % of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] that is removed per tick";
+                [Range(0f, float.PositiveInfinity)] public float External_ScaledHeal { get; set; } = Default_External_ScaledHeal; public string Comment_External_ScaledHeal => $"Default: {Default_External_ScaledHeal}; Multipler; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] that is removed per tick";
                 public const float Default_External_ScaledHeal = 0.015f;
-                [Range(0f, float.PositiveInfinity)] public float External_ArmorPierce { get; set; } = Default_External_ArmorPierce; public string Comment_External_ArmorPierce => $"Default: {Default_External_ArmorPierce}; Multipler; Determines % of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] that is removed per tick";
+                [Range(0f, float.PositiveInfinity)] public float External_ArmorPierce { get; set; } = Default_External_ArmorPierce; public string Comment_External_ArmorPierce => $"Default: {Default_External_ArmorPierce}; Multipler; Determines % of damage reduction (typically armor) that is bypassed when applying bleed";
                 public const float Default_External_ArmorPierce = 0.6f;
             }
 
@@ -79,11 +82,11 @@ namespace BleedingInDepth.config
             public class Variable_Internal
             {
                 public string Comment_BleedCurve = $"See mod page/formulas/bleed damage ticks";
-                [Range(0f, float.PositiveInfinity)] public float Internal_Rate { get; set; } = Default_Internal_Rate; public string Comment_Internal_Rate => $"Default: {Default_Internal_Rate}; Multiplier; Determines % of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is applied to hp as damage per tick";
+                [Range(0f, float.PositiveInfinity)] public float Internal_Rate { get; set; } = Default_Internal_Rate; public string Comment_Internal_Rate => $"Default: {Default_Internal_Rate}; Multiplier; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is applied to hp as damage per tick";
                 public const float Default_Internal_Rate = 0.24f;
-                [Range(0f, float.PositiveInfinity)] public float Internal_FlatHeal { get; set; } = Default_Internal_FlatHeal; public string Comment_Internal_FlatHeal => $"Default: {Default_Internal_FlatHeal}; Flat; Determines how much of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is removed per tick";
+                [Range(0f, float.PositiveInfinity)] public float Internal_FlatHeal { get; set; } = Default_Internal_FlatHeal; public string Comment_Internal_FlatHeal => $"Default: {Default_Internal_FlatHeal}; Flat; Determines how much of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is removed per tick";
                 public const float Default_Internal_FlatHeal = 0.0005f;
-                [Range(0f, float.PositiveInfinity)] public float Internal_ScaledHeal { get; set; } = Default_Internal_ScaledHeal; public string Comment_Internal_ScaledHeal => $"Default: {Default_Internal_ScaledHeal}; Multipler; Determines % of [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] that is removed per tick";
+                [Range(0f, float.PositiveInfinity)] public float Internal_ScaledHeal { get; set; } = Default_Internal_ScaledHeal; public string Comment_Internal_ScaledHeal => $"Default: {Default_Internal_ScaledHeal}; Multipler; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] that is removed per tick";
                 public const float Default_Internal_ScaledHeal = 0.003f;
             }
 
@@ -98,33 +101,38 @@ namespace BleedingInDepth.config
                 public const float Default_BleedHeal_Ground = 1.2f;
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_InternalRestBonus { get; set; } = Default_BleedHeal_InternalRestBonus; public string Comment_BleedHeal_InternalRestBonus => $"Default: {Default_BleedHeal_InternalRestBonus}; Multiplier; Determines how much internal bleed recovery [Bleed_HealRate_Internal] is increased extra when resting on comfort objects or beds";
                 public const float Default_BleedHeal_InternalRestBonus = 1.2f;
-                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Cauterize { get; set; } = Default_BleedHeal_Cauterize; public string Comment_BleedHeal_Cauterize => $"Default: {Default_BleedHeal_Cauterize}; Multipler; Determines how much an instance of fire damage reduces (flat) [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Cauterize { get; set; } = Default_BleedHeal_Cauterize; public string Comment_BleedHeal_Cauterize => $"Default: {Default_BleedHeal_Cauterize}; Multipler; Determines how much an instance of fire damage reduces (flat) [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_BleedHeal_Cauterize = 1.0f;
-                public float HealBonus_BleedHeal_RagToBandageThreshold { get; set; } = Default_BleedHeal_RagToBandageThreshold; public string Comment_BleedHeal_RagToBandageThreshold => $"Default: {Default_BleedHeal_RagToBandageThreshold}; Flat; Determines how much an instance of healing needs to heal to apply the bandaged status. Otherwise, applies ragged status";
-                public const float Default_BleedHeal_RagToBandageThreshold = 0.4f;
+                public float HealBonus_BleedHeal_Min_Rag { get; set; } = Default_BleedHeal_Min_Rag; public string Comment_BleedHeal_Min_Rag => $"Default: {Default_BleedHeal_Min_Rag}; Flat; Determines the minimum an instance of healing needs to heal to apply the ragged status.";
+                public const float Default_BleedHeal_Min_Rag = 0.2f;
+                public float HealBonus_BleedHeal_Min_Bandage { get; set; } = Default_BleedHeal_Min_Bandage; public string Comment_BleedHeal_Min_Bandage => $"Default: {Default_BleedHeal_Min_Bandage}; Flat; Determines the minimum an instance of healing needs to heal to apply the bandaged status. Overwrites ragged status.";
+                public const float Default_BleedHeal_Min_Bandage = 0.4f;
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Rag { get; set; } = Default_BleedReduction_Rag; public string Comment_BleedReduction_Rag => $"Default: {Default_BleedReduction_Rag}; Multipler; WIP; Using a 'rag'(any clothes item, cloth, ect.) applies a 'ragged' effect which reduces [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_External.External_Rate)}] until either external bleeding stops or another instance of damage is taken; does not stack with itself and is overridden by 'bandaged' effect; stacks with pressure";
                 public const float Default_BleedReduction_Rag = 1.0f;
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Bandage { get; set; } = Default_BleedReduction_Bandage; public string Comment_BleedReduction_Bandage => $"Default: {Default_BleedReduction_Bandage}; Multiplier; Using a bandage applies a 'bandaged' effect which reduces [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_External.External_Rate)}] until either external bleeding stops or another instance of damage is taken; does not stack with itself; stacks with pressure";
                 public const float Default_BleedReduction_Bandage = 2.0f;
-                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Flat_Bandage { get; set; } = Default_BleedReduction_Flat_Bandage; public string Comment_BleedReduction_Flat_Bandage => $"Default: {Default_BleedReduction_Flat_Bandage}; Multiplier; Determines how much using a bandage reduces (flat) [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]. Based off a % of the healed health of the item";
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Flat_Bandage { get; set; } = Default_BleedReduction_Flat_Bandage; public string Comment_BleedReduction_Flat_Bandage => $"Default: {Default_BleedReduction_Percent_Bandage}; Multiplier; Determines how much using a bandage reduces (flat) [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}].";
                 public const float Default_BleedReduction_Flat_Bandage = 0.0f;
-                [Range(0f, float.PositiveInfinity)] public float HealBonus_HealReduction_Bandage { get; set; } = Default_HealReduction_Bandage; public string Comment_HealReduction_Bandage => $"Default: {Default_HealReduction_Bandage}; Multiplier; Determines the % a bandage heals from its normal heal value. This is done as removing bleeding is healing (yet to be taken) damage, effectively increasing the healing output of the bandage. Only applied if the entity has external bleed. Applied AFTER [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_HealBonus.HealBonus_BleedReduction_Bandage)}] and [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_HealBonus.HealBonus_BleedHeal_RagToBandageThreshold)}] is calculated";
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Percent_Bandage { get; set; } = Default_BleedReduction_Percent_Bandage; public string Comment_BleedReduction_Percent_Bandage => $"Default: {Default_BleedReduction_Percent_Bandage}; Multiplier; Determines the % of the healed amount from using a bandage reduces (flat) [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]. Based off a % of the healed health of the item";
+                public const float Default_BleedReduction_Percent_Bandage = 0.0f;
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_HealReduction_Bandage { get; set; } = Default_HealReduction_Bandage; public string Comment_HealReduction_Bandage => $"Default: {Default_HealReduction_Bandage}; Multiplier; Determines the % a bandage heals from its normal heal value. This is done as removing bleeding is healing (yet to be taken) damage, effectively increasing the healing output of the bandage. Only applied if the entity has external bleed. Applied AFTER [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_HealBonus.HealBonus_BleedReduction_Bandage)}] and [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_HealBonus.HealBonus_BleedHeal_Min_Bandage)}] is calculated";
                 public const float Default_HealReduction_Bandage = 0.5f;
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Pressure { get; set; } = Default_BleedReduction_Pressure; public string Comment_BleedReduction_Pressure => $"Default: {Default_BleedReduction_Pressure}; Multiplier; Divider to [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_External.External_Rate)}] while the entity is applying pressure; stacks with rag and bandage";
                 public const float Default_BleedReduction_Pressure = 3.0f;
-                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Care { get; set; } = Default_BleedReduction_Care; public string Comment_BleedReduction_Care => $"Default: {Default_BleedReduction_Care}; Multiplier; WIP; Divider to external bleeding [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_External.External_Rate)}] when an entity 'cares' for its wounds";
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedReduction_Care { get; set; } = Default_BleedReduction_Care; public string Comment_BleedReduction_Care => $"Default: {Default_BleedReduction_Care}; Multiplier; semi-WIP; Divider to external bleeding [{nameof(BID_Config_Main.Config_Curve_Variable.Variable_External.External_Rate)}] when an entity 'cares' for its wounds";
                 public const float Default_BleedReduction_Care = 1.8f; //TODO: this will be more barbaric in nature therefor less effective. currently this is just being out of combat for a certain period of time but will be replaced with specific actions such as "licking the wound" idle animation (will use the vanilla sitting animation till i make one)
-
+                [Range(0, int.MaxValue)] public int HealBonus_DeltaTimeSum_Care { get; set; } = Default_DeltaTimeSum_Care; public string Comment_DeltaTimeSum_Care => $"Default: {Default_DeltaTimeSum_Care}; Flat; Required number of seconds to pass for an entity to not get hit for it to be considered out of combat. An entity is considered 'caring' for its wounds after this time elapses";
+                public const int Default_DeltaTimeSum_Care = 10; //TODO: replace this with an animation check and comit
             }
 
             public Variable_Activity Variable_Activity_Acc = new();
             public class Variable_Activity
             {
-                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Walk { get; set; } = Default_ActivityMulti_Walk; public string Comment_ActivityMulti_Walk => $"Default: {Default_ActivityMulti_Walk}; Multipler; Determines how much [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
+                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Walk { get; set; } = Default_ActivityMulti_Walk; public string Comment_ActivityMulti_Walk => $"Default: {Default_ActivityMulti_Walk}; Multipler; Determines how much [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
                 public const float Default_ActivityMulti_Walk = 0.25f;
-                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Sprint { get; set; } = Default_ActivityMulti_Sprint; public string Comment_ActivityMulti_Sprint => $"Default: {Default_ActivityMulti_Sprint}; Multipler; Determines how much [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
+                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Sprint { get; set; } = Default_ActivityMulti_Sprint; public string Comment_ActivityMulti_Sprint => $"Default: {Default_ActivityMulti_Sprint}; Multipler; Determines how much [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
                 public const float Default_ActivityMulti_Sprint = 0.4f;
-                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Hit { get; set; } = Default_ActivityMulti_Hit; public string Comment_ActivityMulti_Hit => $"Default: {Default_ActivityMulti_Hit}; Multipler; Determines how much [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
+                [Range(0f, float.PositiveInfinity)] public float ActivityMulti_Hit { get; set; } = Default_ActivityMulti_Hit; public string Comment_ActivityMulti_Hit => $"Default: {Default_ActivityMulti_Hit}; Multipler; Determines how much [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] and [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] DOT application rate is increased by this activity";
                 public const float Default_ActivityMulti_Hit = 0.15f;
             }
 
@@ -186,7 +194,7 @@ namespace BleedingInDepth.config
                 public string Comment_PerDamageType_Direct_Multi => "Multiplier; Determines % of [DamageType] damage taken that is applied directly to health";
                 public string Comment_PerDamageType_Bleed_Multi_External => "Multiplier; Determines % of [DamageType] damage taken that is converted to bleed";
                 public string Comment_PerDamageType_Bleed_Multi_Internal => "Curve; WIP; How effective [DamageType] is at diverting to internal bleeding from regular bleed damage. This only applies to damage over [DamageType][Bleed_ConversionThreshold_Internal]; Set to 0 to convert ALL bleed over the start value"; //wolf hits in vanilla do 8 damage to unarmored; bears do 10. the initial bleed modifier [DamageMultiplier_(DamageType)_Bleed] will reduce this so this value needs to take that into account
-                public string Comment_PerDamageType_Bleed_ConversionThreshold_Internal => $"Flat; Determines the damage delt in a single hit multiplied by [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] minimum before internal bleeding conversion curve starts. Internal bleed curve only takes the damage past this threshold into account; If [DamageType][Bleed_Multi_Internal] is 0 the applied damage converted to internal bleed will be reduced by this amount";
+                public string Comment_PerDamageType_Bleed_ConversionThreshold_Internal => $"Flat; Determines the damage delt in a single hit multiplied by [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] minimum before internal bleeding conversion curve starts. Internal bleed curve only takes the damage past this threshold into account; If [DamageType][Bleed_Multi_Internal] is 0 the applied damage converted to internal bleed will be reduced by this amount";
 
                 internal static string NameOf_DamageType_DirectMulti = "Direct_Multi";
                 internal static string NameOf_DamageType_BleedMultiExternal = "Bleed_Multi_External";
@@ -196,67 +204,86 @@ namespace BleedingInDepth.config
                 {
                     [EnumDamageType.SlashingAttack] = new(StringComparer.OrdinalIgnoreCase)
                     {
-                        [NameOf_DamageType_DirectMulti] = Default_Slash_Direct_Multi,
-                        [NameOf_DamageType_BleedMultiExternal] = Default_Slash_Bleed_Multi_External,
-                        [NameOf_DamageType_BleedMultiInternal] = Default_Slash_Bleed_Multi_Internal,
-                        [NameOf_DamageType_BleedConversionThresholdInternal] = Default_Slash_Bleed_ConversionThreshold_Internal
+                        [NameOf_DamageType_DirectMulti] = DamageType_Slash.Default_Direct_Multi,
+                        [NameOf_DamageType_BleedMultiExternal] = DamageType_Slash.Default_Bleed_Multi_External,
+                        [NameOf_DamageType_BleedMultiInternal] = DamageType_Slash.Default_Bleed_Multi_Internal,
+                        [NameOf_DamageType_BleedConversionThresholdInternal] = DamageType_Slash.Default_Bleed_ConversionThreshold_Internal
                     },
                     [EnumDamageType.BluntAttack] = new(StringComparer.OrdinalIgnoreCase)
                     {
-                        [NameOf_DamageType_DirectMulti] = Default_Blunt_Direct_Multi,
-                        [NameOf_DamageType_BleedMultiExternal] = Default_Blunt_Bleed_Multi_External,
-                        [NameOf_DamageType_BleedMultiInternal] = Default_Blunt_Bleed_Multi_Internal,
-                        [NameOf_DamageType_BleedConversionThresholdInternal] = Default_Blunt_Bleed_ConversionThreshold_Internal
+                        [NameOf_DamageType_DirectMulti] = DamageType_Blunt.Default_Direct_Multi,
+                        [NameOf_DamageType_BleedMultiExternal] = DamageType_Blunt.Default_Bleed_Multi_External,
+                        [NameOf_DamageType_BleedMultiInternal] = DamageType_Blunt.Default_Bleed_Multi_Internal,
+                        [NameOf_DamageType_BleedConversionThresholdInternal] = DamageType_Blunt.Default_Bleed_ConversionThreshold_Internal
                     },
                     [EnumDamageType.PiercingAttack] = new(StringComparer.OrdinalIgnoreCase)
                     {
-                        [NameOf_DamageType_DirectMulti] = Default_Pierce_Direct_Multi,
-                        [NameOf_DamageType_BleedMultiExternal] = Default_Pierce_Bleed_Multi_External,
-                        [NameOf_DamageType_BleedMultiInternal] = Default_Pierce_Bleed_Multi_Internal,
-                        [NameOf_DamageType_BleedConversionThresholdInternal] = Default_Pierce_Bleed_ConversionThreshold_Internal
+                        [NameOf_DamageType_DirectMulti] = DamageType_Pierce.Default_Direct_Multi,
+                        [NameOf_DamageType_BleedMultiExternal] = DamageType_Pierce.Default_Bleed_Multi_External,
+                        [NameOf_DamageType_BleedMultiInternal] = DamageType_Pierce.Default_Bleed_Multi_Internal,
+                        [NameOf_DamageType_BleedConversionThresholdInternal] = DamageType_Pierce.Default_Bleed_ConversionThreshold_Internal
                     },
                 };
 
 
-                public string Comment_Slash_Identifier => "-------------------- Slash Defaults: See PerDamageType comments --------------------";
-                public string Comment_Slash_Direct_Multi => $"Default: {Default_Slash_Direct_Multi}";
-                public const float Default_Slash_Direct_Multi = 0.4f;
-                public string Comment_Slash_Bleed_Multi_External => $"Default: {Default_Slash_Bleed_Multi_External}";
-                public const float Default_Slash_Bleed_Multi_External = 0.4f;
-                public string Comment_Slash_Bleed_Multi_Internal => $"Default: {Default_Slash_Bleed_Multi_Internal}; ";
-                public const float Default_Slash_Bleed_Multi_Internal = 0.1f; //TODO: figure out the curve formula to use this value per DamageType
-                public string Comment_Slash_Bleed_ConversionThreshold_Internal => $"Default: {Default_Slash_Bleed_ConversionThreshold_Internal}";
-                public const float Default_Slash_Bleed_ConversionThreshold_Internal = 8.0f;
+                [JsonProperty(Order = 1)]
+                public DamageType_Slash DamageType_Slash_Acc = new();
+                public class DamageType_Slash
+                {
+                    public string Comment_Identifier => "-------------------- Slash Defaults: See PerDamageType comments --------------------";
+                    public string Comment_Direct_Multi => $"Default: {Default_Direct_Multi}";
+                    public const float Default_Direct_Multi = 0.4f;
+                    public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
+                    public const float Default_Bleed_Multi_External = 0.4f;
+                    public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}; ";
+                    public const float Default_Bleed_Multi_Internal = 0.1f; //TODO: figure out the curve formula to use this value per DamageType
+                    public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
+                    public const float Default_Bleed_ConversionThreshold_Internal = 8.0f;
+                }
 
 
-                public string Comment_Blunt_Identifier => "-------------------- Blunt Defaults: See PerDamageType comments --------------------";
-                public string Comment_Blunt_Direct_Multi => $"Default: {Default_Blunt_Direct_Multi}";
-                public const float Default_Blunt_Direct_Multi = 0.95f;
-                public string Comment_Blunt_Bleed_Multi_External => $"Default: {Default_Blunt_Bleed_Multi_External}";
-                public const float Default_Blunt_Bleed_Multi_External = 0.02f;
-                public string Comment_Blunt_Bleed_Multi_Internal => $"Default: {Default_Blunt_Bleed_Multi_Internal}";
-                public const float Default_Blunt_Bleed_Multi_Internal = 0.0f;
-                public string Comment_Blunt_Bleed_ConversionThreshold_Internal => $"Default: {Default_Blunt_Bleed_ConversionThreshold_Internal}";
-                public const float Default_Blunt_Bleed_ConversionThreshold_Internal = 1.0f;
+                [JsonProperty(Order = 1)]
+                public DamageType_Blunt DamageType_Blunt_Acc = new();
+                public class DamageType_Blunt
+                {
+                    public string Comment_Identifier => "-------------------- Blunt Defaults: See PerDamageType comments --------------------";
+                    public string Comment_Direct_Multi => $"Default: {Default_Direct_Multi}";
+                    public const float Default_Direct_Multi = 0.95f;
+                    public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
+                    public const float Default_Bleed_Multi_External = 0.02f;
+                    public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}";
+                    public const float Default_Bleed_Multi_Internal = 0.0f;
+                    public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
+                    public const float Default_Bleed_ConversionThreshold_Internal = 0.5f;
+                }
 
 
-                public string Comment_Pierce_Identifier => "-------------------- Pierce Defaults: See PerDamageType comments --------------------";
-                public string Comment_Pierce_Direct_Multi => $"Default: {Default_Pierce_Direct_Multi}";
-                public const float Default_Pierce_Direct_Multi = 0.75f;
-                public string Comment_Pierce_Bleed_Multi_External => $"Default: {Default_Pierce_Bleed_Multi_External}";
-                public const float Default_Pierce_Bleed_Multi_External = 0.15f;
-                public string Comment_Pierce_Bleed_Multi_Internal => $"Default: {Default_Pierce_Bleed_Multi_Internal}";
-                public const float Default_Pierce_Bleed_Multi_Internal = 0.7f;
-                public string Comment_Pierce_Bleed_ConversionThreshold_Internal => $"Default: {Default_Pierce_Bleed_ConversionThreshold_Internal}";
-                public const float Default_Pierce_Bleed_ConversionThreshold_Internal = 3.0f;
+                [JsonProperty(Order = 1)]
+                public DamageType_Pierce DamageType_Pierce_Acc = new();
+                public class DamageType_Pierce
+                {
+                    public string Comment_Identifier => "-------------------- Pierce Defaults: See PerDamageType comments --------------------";
+                    public string Comment_Direct_Multi => $"Default: {Default_Direct_Multi}";
+                    public const float Default_Direct_Multi = 0.75f;
+                    public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
+                    public const float Default_Bleed_Multi_External = 0.15f;
+                    public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}";
+                    public const float Default_Bleed_Multi_Internal = 0.7f;
+                    public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
+                    public const float Default_Bleed_ConversionThreshold_Internal = 3.0f;
+                }
             }
 
             public TypeMod_Entity TypeMod_Entity_Acc = new();
             public class TypeMod_Entity
             {
-                public string Comment_EntityCategory_Title => "-------------------- Entity Type Toggles --------------------";
-                public string Comment_PerEntityCategoryExplained => "Each entity falls into one of 4 categories. Each category multiplies the damage and bleed of bleedable DamageTypes (see Config_DamageType) an entity recieves when damaged; used to make certain entities more or less resistant to that DamageType";
-                public string Comment_PerEntityCategoryColor => "WIP; Entity category types can be given a blood color in % of HSVA";
+                public EntityCategory_Info EntityCategory_Info_Acc = new();
+                public class EntityCategory_Info
+                {
+                    public string Comment_EntityCategory_Title => "-------------------- Entity Type Toggles --------------------";
+                    public string Comment_PerEntityCategoryExplained => "Each entity falls into one of 4 categories. Each category multiplies the damage and bleed of bleedable DamageTypes (see Config_DamageType) an entity recieves when damaged; used to make certain entities more or less resistant to that DamageType";
+                    public string Comment_PerEntityCategoryColor => "WIP; Entity category types can be given a blood color in % of HSVA";
+                }
 
 
                 internal static string NameOf_EntityCategory_DamageMod_Direct = "Direct_Multi";
@@ -297,6 +324,7 @@ namespace BleedingInDepth.config
                 };
 
 
+                [JsonProperty(Order = 1)]
                 public Mod_Player Mod_PLayer_Acc = new();
                 public class Mod_Player
                 {
@@ -312,7 +340,8 @@ namespace BleedingInDepth.config
                 }
 
 
-                public Mod_Player Mod_Animal_Acc = new();
+                [JsonProperty(Order = 1)]
+                public Mod_Animal Mod_Animal_Acc = new();
                 public class Mod_Animal
                 {
                     public string Comment_Identifier => "-------------------- Animal Defaults: See PerEntityCategory comments --------------------";
@@ -327,7 +356,8 @@ namespace BleedingInDepth.config
                 }
 
 
-                public Mod_Player Mod_Temporal_Acc = new();
+                [JsonProperty(Order = 1)]
+                public Mod_Temporal Mod_Temporal_Acc = new();
                 public class Mod_Temporal
                 {
                     public string Comment_Identifier => "-------------------- Rust Creatures Defaults: See PerEntityCategory comments --------------------";
@@ -342,7 +372,8 @@ namespace BleedingInDepth.config
                 }
 
 
-                public Mod_Player Mod_Mechanical_Acc = new();
+                [JsonProperty(Order = 1)]
+                public Mod_Mechanical Mod_Mechanical_Acc = new();
                 public class Mod_Mechanical
                 {
                     public string Comment_Identifier => "-------------------- Mechanical Defaults: See PerEntityCategory comments --------------------";
@@ -397,17 +428,17 @@ namespace BleedingInDepth.config
             public VFX_Bleeding VFX_Bleeding_Acc = new();
             public class VFX_Bleeding
             {
-                public bool Particle_Toggle { get; set; } = Default_Particle_Toggle; public string Comment_Particle_Toggle => $"Default: {Default_Particle_Toggle}; Toggle; Determines if bleeding entitys create blood particles based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                public bool Particle_Toggle { get; set; } = Default_Particle_Toggle; public string Comment_Particle_Toggle => $"Default: {Default_Particle_Toggle}; Toggle; Determines if bleeding entitys create blood particles based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const bool Default_Particle_Toggle = true;
-                [Range(0f, 3f)] public float Particle_AmtMulti_SlopeRate { get; set; } = Default_Particle_AmtMulti_SlopeRate; public string Comment_Particle_AmtMulti_SlopeRate => $"Default: {Default_Particle_AmtMulti_SlopeRate}; Multiplier; Multi to the number of particles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, 3f)] public float Particle_AmtMulti_SlopeRate { get; set; } = Default_Particle_AmtMulti_SlopeRate; public string Comment_Particle_AmtMulti_SlopeRate => $"Default: {Default_Particle_AmtMulti_SlopeRate}; Multiplier; Multi to the number of particles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_AmtMulti_SlopeRate = 0.5f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_AmtMulti_Max { get; set; } = Default_Particle_AmtMulti_Max; public string Comment_Particle_AmtMulti_Max => $"Default: {Default_Particle_AmtMulti_Max}; Flat; Max value for number of paricles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_AmtMulti_Max { get; set; } = Default_Particle_AmtMulti_Max; public string Comment_Particle_AmtMulti_Max => $"Default: {Default_Particle_AmtMulti_Max}; Flat; Max value for number of paricles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_AmtMulti_Max = 12.0f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Base { get; set; } = Default_Particle_SizeMulti_Base; public string Comment_Particle_SizeMulti_Base => $"Default: {Default_Particle_SizeMulti_Base}; Multiplier; Base particle size for curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Base { get; set; } = Default_Particle_SizeMulti_Base; public string Comment_Particle_SizeMulti_Base => $"Default: {Default_Particle_SizeMulti_Base}; Multiplier; Base particle size for curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_Base = 0.8f;
-                [Range(0f, 3f)] public float Particle_SizeMulti_SlopeRate { get; set; } = Default_Particle_SizeMulti_SlopeRate; public string Comment_Particle_SizeMulti_SlopeRate => $"Default: {Default_Particle_SizeMulti_SlopeRate}; Multiplier; Multi to the size of particles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, 3f)] public float Particle_SizeMulti_SlopeRate { get; set; } = Default_Particle_SizeMulti_SlopeRate; public string Comment_Particle_SizeMulti_SlopeRate => $"Default: {Default_Particle_SizeMulti_SlopeRate}; Multiplier; Multi to the size of particles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_SlopeRate = 1.2f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Max { get; set; } = Default_Particle_SizeMulti_Max; public string Comment_Particle_SizeMulti_Max => $"Default: {Default_Particle_SizeMulti_Max}; Flat; Max value for size of paricles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Max { get; set; } = Default_Particle_SizeMulti_Max; public string Comment_Particle_SizeMulti_Max => $"Default: {Default_Particle_SizeMulti_Max}; Flat; Max value for size of paricles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_Max = 2.0f;
                 [Range(0f, float.PositiveInfinity)] public float Particle_LifeLength_Base { get; set; } = Default_Particle_LifeLength_Base; public string Comment_Particle_LifeLength_Base => $"Default: {Default_Particle_LifeLength_Base}; Flat; How long in seconds a bleeding particle will exist on average";
                 public const float Default_Particle_LifeLength_Base = 45.0f;
@@ -419,17 +450,17 @@ namespace BleedingInDepth.config
             public VFX_BloodSplash VFX_BloodSplash_Acc = new();
             public class VFX_BloodSplash
             {
-                public bool Particle_Toggle { get; set; } = Default_Particle_Toggle; public string Comment_Particle_Toggle => $"Default: {Default_Particle_Toggle}; Toggle; Determines if damage that causes bleeding will splash blood particles on hit based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                public bool Particle_Toggle { get; set; } = Default_Particle_Toggle; public string Comment_Particle_Toggle => $"Default: {Default_Particle_Toggle}; Toggle; Determines if damage that causes bleeding will splash blood particles on hit based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const bool Default_Particle_Toggle = true;
-                [Range(0f, 3f)] public float Particle_AmtMulti_SlopeRate { get; set; } = Default_Particle_AmtMulti_SlopeRate; public string Comment_Particle_AmtMulti_SlopeRate => $"Default: {Default_Particle_AmtMulti_SlopeRate}; Multiplier; Multi to the number of particles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, 3f)] public float Particle_AmtMulti_SlopeRate { get; set; } = Default_Particle_AmtMulti_SlopeRate; public string Comment_Particle_AmtMulti_SlopeRate => $"Default: {Default_Particle_AmtMulti_SlopeRate}; Multiplier; Multi to the number of particles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_AmtMulti_SlopeRate = 0.5f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_AmtMulti_Max { get; set; } = Default_Particle_AmtMulti_Max; public string Comment_Particle_AmtMulti_Max => $"Default: {Default_Particle_AmtMulti_Max}; Flat; Max value for paricle spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_AmtMulti_Max { get; set; } = Default_Particle_AmtMulti_Max; public string Comment_Particle_AmtMulti_Max => $"Default: {Default_Particle_AmtMulti_Max}; Flat; Max value for paricle spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_AmtMulti_Max = 12.0f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Base { get; set; } = Default_Particle_SizeMulti_Base; public string Comment_Particle_SizeMulti_Base => $"Default: {Default_Particle_SizeMulti_Base}; Multiplier; Base particle size for curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Base { get; set; } = Default_Particle_SizeMulti_Base; public string Comment_Particle_SizeMulti_Base => $"Default: {Default_Particle_SizeMulti_Base}; Multiplier; Base particle size for curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_Base = 0.25f;
-                [Range(0f, 3f)] public float Particle_SizeMulti_SlopeRate { get; set; } = Default_Particle_SizeMulti_SlopeRate; public string Comment_Particle_SizeMulti_SlopeRate => $"Default: {Default_Particle_SizeMulti_SlopeRate}; Multiplier; Multi to the size of particles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, 3f)] public float Particle_SizeMulti_SlopeRate { get; set; } = Default_Particle_SizeMulti_SlopeRate; public string Comment_Particle_SizeMulti_SlopeRate => $"Default: {Default_Particle_SizeMulti_SlopeRate}; Multiplier; Multi to the size of particles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_SlopeRate = 1.2f;
-                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Max { get; set; } = Default_Particle_SizeMulti_Max; public string Comment_Particle_SizeMulti_Max => $"Default: {Default_Particle_SizeMulti_Max}; Flat; Max value for size of paricles spawning curve based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                [Range(0f, float.PositiveInfinity)] public float Particle_SizeMulti_Max { get; set; } = Default_Particle_SizeMulti_Max; public string Comment_Particle_SizeMulti_Max => $"Default: {Default_Particle_SizeMulti_Max}; Flat; Max value for size of paricles spawning curve based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const float Default_Particle_SizeMulti_Max = 2.0f;
             }
             public VFX_DeathPop VFX_DeathPop_Acc = new();
@@ -437,7 +468,7 @@ namespace BleedingInDepth.config
             {
                 public bool Particle_Toggle { get; set; } = Default_Particle_Toggle; public string Comment_Particle_Toggle => $"Default: {Default_Particle_Toggle}; Toggle; Determines if entities that die while heavily bleeding explode in a shower of blood particles amount based on max health";
                 public const bool Default_Particle_Toggle = true;
-                [Range(0f, float.PositiveInfinity)] public float Particle_BleedThreshold { get; set; } = Default_Particle_BleedThreshold; public string Comment_Particle_BleedThreshold => $"Default: {Default_Particle_BleedThreshold}; Flat; Bleeding DPS required [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] for death pop to occur";
+                [Range(0f, float.PositiveInfinity)] public float Particle_BleedThreshold { get; set; } = Default_Particle_BleedThreshold; public string Comment_Particle_BleedThreshold => $"Default: {Default_Particle_BleedThreshold}; Flat; Bleeding DPS required [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] for death pop to occur";
                 public const float Default_Particle_BleedThreshold = 0.3f;
                 [Range(0f, float.PositiveInfinity)] public float Particle_Amount_Max { get; set; } = Default_Particle_Amount_Max; public string Comment_Particle_Amount_Max => $"Default: {Default_Particle_Amount_Max}; Flat; Max particles allowed to spawn from a death pop effect";
                 public const float Default_Particle_Amount_Max = 30.0f;
@@ -453,7 +484,7 @@ namespace BleedingInDepth.config
             public SFX_Drip SFX_Drip_Acc = new();
             public class SFX_Drip
             {
-                public bool Drip_Toggle { get; set; } = Default_Drip_Toggle; public string Comment_Drip_Toggle => $"Default: {Default_Drip_Toggle}; Toggle; WIP; Determines if a dripping sound effect plays when bleeding entitys stand on certain materials based on [{nameof(BID_Manager_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
+                public bool Drip_Toggle { get; set; } = Default_Drip_Toggle; public string Comment_Drip_Toggle => $"Default: {Default_Drip_Toggle}; Toggle; WIP; Determines if a dripping sound effect plays when bleeding entitys stand on certain materials based on [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}]";
                 public const bool Default_Drip_Toggle = false;
                 [Range(0f, float.PositiveInfinity)] public float Drip_Rate { get; set; } = Default_Drip_Rate; public string Comment_Drip_Rate => $"Default: {Default_Drip_Rate}; Multiplier; Determines how often the bleed drip sfx will play per entity";
                 public const float Default_Drip_Rate = 1.0f;
