@@ -1,7 +1,4 @@
-﻿using BleedingInDepth.config;
-using BleedingInDepth.lib;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,14 +9,12 @@ using System.Text;
 using System.Threading.Tasks;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
-using static BleedingInDepth.config.BID_ModConfig.Config_BleedReport;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace BleedingInDepth.config
 {
     internal class BID_Config_Manager
     {
-        private static ICoreAPI API = BleedingInDepthModSystem.API;
+        private static ICoreAPI API = BID_VarRef.API;
 
 
 
@@ -27,11 +22,11 @@ namespace BleedingInDepth.config
         {
             try
             {
-                if (Config_Reference.Config_Loaded is not null) { API.Logger.Debug("[BleedingInDepth]: (Config_Conjure) {0} config already loaded, skipping", [API.Side]); return; }
-                if (API.Side == EnumAppSide.Server) { API.Logger.Debug("[BleedingInDepth]: (Config_Conjure) Caught server config loading"); Config_LoadDisk(); Config_SaveWorld(); }
-                else { API.Logger.Debug("[BleedingInDepth]: (Config_Conjure) Caught non-server config loading, loading from World config"); Config_LoadWorld(); }
+                if (Config_Reference.Config_Loaded is not null) { API.Logger.Debug("[{0}]: (Config_Conjure) {1} config already loaded, skipping", [BID_VarRef.ModName, API.Side]); return; }
+                if (API.Side == EnumAppSide.Server) { API.Logger.Debug("[{0}]: (Config_Conjure) Caught server config loading", [BID_VarRef.ModName]); Config_LoadDisk(); Config_SaveWorld(); }
+                else { API.Logger.Debug("[{0}]: (Config_Conjure) Caught non-server config loading, loading from World config", [BID_VarRef.ModName]); Config_LoadWorld(); }
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_Conjure) Exception caught: {0}", [e.Message]); }
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_Conjure) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); }
         }
 
 
@@ -40,13 +35,14 @@ namespace BleedingInDepth.config
             try
             {
                 Config_Reference.Config_Loaded = API.LoadModConfig<Config_Reference>(Config_Reference.Config_FilePath);
-                API.Logger.Debug($"{(Config_Reference.Config_Loaded is null ? $"[BleedingInDepth]: (Config_LoadDisk)Found no '{API.Side}' config, creating new" : $"[BleedingInDepth]: (Config_LoadDisk) Found '{API.Side}' config, loading")}"); //TODO: replace with lang file
+                API.Logger.Debug($"{(Config_Reference.Config_Loaded is null ? $"[{BID_VarRef.ModName}]: (Config_LoadDisk)Found no '{API.Side}' config, creating new" : $"[{BID_VarRef.ModName}]: (Config_LoadDisk) Found '{API.Side}' config, loading")}");
                 Config_Reference.Config_Loaded ??= new Config_Reference();
                 Config_ValidateValue();
                 Config_SaveDisk();
+                Config_CheckModCompat();
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_LoadDisk) Exception caught, loading default config: {0}", [e.Message]); Config_Reference.Config_Loaded = new Config_Reference(); }
-            API.Logger.Debug("[BleedingInDepth]: (Config_LoadDisk) Complete");
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_LoadDisk) Exception caught, loading default config: {1}", [BID_VarRef.ModName, e.Message]); Config_Reference.Config_Loaded = new Config_Reference(); }
+            API.Logger.Debug("[{0}]: (Config_LoadDisk) Complete", [BID_VarRef.ModName]);
         }
 
 
@@ -55,15 +51,15 @@ namespace BleedingInDepth.config
             try
             {
                 var Config_LoadedBase64 = API.World.Config.GetString(Config_Reference.Config_FilePath);
-                if (string.IsNullOrWhiteSpace(Config_LoadedBase64)) { Config_Reference.Config_Loaded = new Config_Reference(); Config_ValidateValue(); API.Logger.Debug("[BleedingInDepth]: (Config_LoadWorld) Config loaded was null or whitespace, loading default config"); return; }
+                if (string.IsNullOrWhiteSpace(Config_LoadedBase64)) { Config_Reference.Config_Loaded = new Config_Reference(); Config_ValidateValue(); API.Logger.Debug("[{0}]: (Config_LoadWorld) Config loaded was null or whitespace, loading default config", [BID_VarRef.ModName]); return; }
 
                 var Config_LoadedSerialized = Encoding.UTF8.GetString(Convert.FromBase64String(Config_LoadedBase64));
                 var Config_Repopulated = new Config_Reference();
                 JsonConvert.PopulateObject(Config_LoadedSerialized, Config_Repopulated, new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace});
                 Config_Reference.Config_Loaded = Config_Repopulated;
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_LoadWorld) Exception caught, loading default config: {0}", [e.Message]); Config_Reference.Config_Loaded = new Config_Reference(); }
-            API.Logger.Debug("[BleedingInDepth]: (Config_LoadWorld) Complete");
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_LoadWorld) Exception caught, loading default config: {1}", [BID_VarRef.ModName, e.Message]); Config_Reference.Config_Loaded = new Config_Reference(); }
+            API.Logger.Debug("[{0}]: (Config_LoadWorld) Complete", [BID_VarRef.ModName]);
         }
         
 
@@ -72,9 +68,9 @@ namespace BleedingInDepth.config
             try
             {
                 API.StoreModConfig(Config_Reference.Config_Loaded, Config_Reference.Config_FilePath);
-                API.Logger.Debug("[BleedingInDepth]: (Config_SaveDisk) Complete");
+                API.Logger.Debug("[{0}]: (Config_SaveDisk) Complete", [BID_VarRef.ModName]);
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_SaveDisk) Exception caught: {0}", [e.Message]); }
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_SaveDisk) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); }
         }
 
 
@@ -83,9 +79,9 @@ namespace BleedingInDepth.config
             try
             {
                 API.World.Config.SetString(Config_Reference.Config_FilePath, Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(Config_Reference.Config_Loaded, Formatting.None))));
-                API.Logger.Debug("[BleedingInDepth]: (Config_SaveWorld) Complete");
+                API.Logger.Debug("[{0}]: (Config_SaveWorld) Complete", [BID_VarRef.ModName]);
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_SaveWorld) Exception caught: {0}", [e.Message]); }
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_SaveWorld) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); }
         }
 
 
@@ -94,15 +90,15 @@ namespace BleedingInDepth.config
             try
             {
                 if (Config_Reference.Config_Loaded is not null) { Config_Reference.Config_Loaded = null; }
-                API.Logger.Debug("[BleedingInDepth]: (Config_Unload) Complete");
+                API.Logger.Debug("[{0}]: (Config_Unload) Complete", [BID_VarRef.ModName]);
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_Unload) Exception caught: {0}", [e.Message]); }
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_Unload) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); }
         }
 
 
         internal static void Config_ValidateValue() //various config validation checks
         {
-            if (Config_Reference.Config_Loaded is null) { API.Logger.Debug("[Bleedingindepth]: (Config_ValidateValue) Config_Loaded was missing or invalid, skipping"); return; }
+            if (Config_Reference.Config_Loaded is null) { API.Logger.Debug("[(0}]: (Config_ValidateValue) Config_Loaded was missing or invalid, skipping", [BID_VarRef.ModName]); return; }
             Config_ValidateList();
             Config_ValidateClamp(Config_Reference.Config_Loaded);
         }
@@ -122,7 +118,7 @@ namespace BleedingInDepth.config
                     object? instance_raw = instance_Property.GetValue(config_instance);
                     if (instance_raw is null) continue;
 
-                    if (prop_type.IsClass && prop_type != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(prop_type) && prop_type.Namespace == "BleedingInDepth.config") //check if current property is a class which nests config values; run recursive Config_ClampValue inside class
+                    if (prop_type.IsClass && prop_type != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(prop_type) && prop_type.Namespace == $"{BID_VarRef.ModName}.config") //check if current property is a class which nests config values; run recursive Config_ClampValue inside class
                     {
                         Config_ValidateClamp(instance_raw, instance_Visited);
                         continue;
@@ -143,7 +139,7 @@ namespace BleedingInDepth.config
                     }
                 }
             }
-            catch (Exception e) { API.Logger.Debug("[Bleedingindepth]: (Config_ValidateClamp) Exception caught: {0}", [e.Message]); }
+            catch (Exception e) { API.Logger.Debug("[{0}]: (Config_ValidateClamp) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); }
         }
 
 
@@ -154,25 +150,34 @@ namespace BleedingInDepth.config
                 //SFX: Drip Materials
                 if (Config_Reference.Config_Loaded.Config_Effect.SFX_Drip_Acc.Drip_Materials is null)
                 {
-                    API.Logger.Debug("[BleedingInDepth]: (Config_ValidateList) Defaulted SFX_Drip.Bleed_Effect_SoundMaterials");
-                    Config_Reference.Config_Loaded.Config_Effect.SFX_Drip_Acc.Drip_Materials ??= [.. BID_ModConfig.Config_Effect.SFX_Drip.Default_Drip_Materials.Split(",", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+                    API.Logger.Debug("[{0}]: (Config_ValidateList) Defaulted SFX_Drip.Bleed_Effect_SoundMaterials", [BID_VarRef.ModName]);
+                    Config_Reference.Config_Loaded.Config_Effect.SFX_Drip_Acc.Drip_Materials ??= [.. BID_Config_Main.Config_Effect.SFX_Drip.Default_Drip_Materials.Split(",", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
                 }
 
                 //BleedReport: Severity Threashold
                 if (Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold is null || Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold.Count == 0)
                 {
-                    API.Logger.Debug("[BleedingInDepth]: (Config_ValidateList) Defaulted List_BleedReport_DPS_SeverityThreashold");
+                    API.Logger.Debug("[{0}]: (Config_ValidateList) Defaulted List_BleedReport_DPS_SeverityThreashold", [BID_VarRef.ModName]);
                     Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold = [];
                     Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold.AddRange([
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_DPS_Severe, Severity = "Severe" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_DPS_Moderate, Severity = "Moderate" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_DPS_Minor, Severity = "Minor" },
-                    new BleedSeverityThreashold { BleedLevel = BID_ModConfig.Config_BleedReport.Default_BleedReport_DPS_Trivial, Severity = "Trivial" }
+                    new BID_Config_Main.Config_BleedReport.BleedSeverityThreashold { BleedLevel = BID_Config_Main.Config_BleedReport.Default_BleedReport_DPS_Severe, Severity = "Severe" },
+                    new BID_Config_Main.Config_BleedReport.BleedSeverityThreashold { BleedLevel = BID_Config_Main.Config_BleedReport.Default_BleedReport_DPS_Moderate, Severity = "Moderate" },
+                    new BID_Config_Main.Config_BleedReport.BleedSeverityThreashold { BleedLevel = BID_Config_Main.Config_BleedReport.Default_BleedReport_DPS_Minor, Severity = "Minor" },
+                    new BID_Config_Main.Config_BleedReport.BleedSeverityThreashold { BleedLevel = BID_Config_Main.Config_BleedReport.Default_BleedReport_DPS_Trivial, Severity = "Trivial" }
                     ]);
                 }
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_ValidateList) Exception caught: {0}", [e.Message]); }
-            API.Logger.Debug("[BleedingInDepth]: (Config_ValidateList) Complete");
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_ValidateList) Exception caught: {0}", [BID_VarRef.ModName, e.Message]); }
+            API.Logger.Debug("[{0}]: (Config_ValidateList) Complete", [BID_VarRef.ModName]);
+        }
+
+
+        internal static void Config_CheckModCompat()
+        {
+            if (BID_VarRef.API.ModLoader.GetMod("combatoverhaul") is not null) //TODO: create a list with any mod that changes damageTypes to not just blunt, then check if any of the mods are loaded and apply enable damagetypes
+            {//TODO: find a way to recognize if damagetypes are used (through CO or other mods) and autoset compat instead of using a list of mods
+                Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.UseDamageTypeCompat = true;
+            }
         }
 
 
@@ -181,11 +186,11 @@ namespace BleedingInDepth.config
             try
             {
                 if (!string.IsNullOrWhiteSpace(Config_Reference.Config_Loaded?.ToString()) && !hardReset) { return false; }
-                API.Logger.Error("[BleedingInDepth]: (Config_LoadDefaultIfError) Config was missing, null or malformed; Loading default config");
+                API.Logger.Error("[{0}]: (Config_LoadDefaultIfError) Config was missing, null or malformed; Loading default config", [BID_VarRef.ModName]);
                 Config_Reference.Config_Loaded = new Config_Reference();
                 return true;
             }
-            catch (Exception e) { API.Logger.Error("[BleedingInDepth]: (Config_LoadDefaultIfError) Exception caught: {0}", [e.Message]); return false; }
+            catch (Exception e) { API.Logger.Error("[{0}]: (Config_LoadDefaultIfError) Exception caught: {1}", [BID_VarRef.ModName, e.Message]); return false; }
         }
     }
 }
