@@ -1,10 +1,10 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text;
+using Newtonsoft.Json;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
@@ -27,10 +27,10 @@ namespace BleedingInDepth.config
             if (Config_Reference.Config_Loaded is not null) { API.Logger.Debug("[{0}]: (Config_Conjure) {1} config already loaded, skipping", [BID_VarRef.ModName, API.Side]); return; }
             if (API.Side == EnumAppSide.Server)
             {
-                API.Logger.Debug("[{0}]: (Config_Conjure) Caught server config loading", [BID_VarRef.ModName]);
+                API.Logger.Debug("[{0}]: (Config_Conjure) Caught server config load", [BID_VarRef.ModName]);
                 Config_LoadDisk(); Config_SaveDisk(); Config_SaveWorld();
             }
-            else { API.Logger.Debug("[{0}]: (Config_Conjure) Caught non-server config loading, loading from World config", [BID_VarRef.ModName]); Config_LoadWorld(); }
+            else { API.Logger.Debug("[{0}]: (Config_Conjure) Caught non-server config load, loading from World config", [BID_VarRef.ModName]); Config_LoadWorld(); }
         }
 
 
@@ -38,17 +38,17 @@ namespace BleedingInDepth.config
         internal static void Config_LoadDisk()
         {
             Config_Reference.Config_Loaded = API.LoadModConfig<Config_Reference>(Config_Reference.Config_FilePath);
-            API.Logger.Debug($"{(Config_Reference.Config_Loaded is null ? $"[{BID_VarRef.ModName}]: (Config_LoadDisk) Found no '{API.Side}' config, creating new" : $"[{BID_VarRef.ModName}]: (Config_LoadDisk) Found '{API.Side}' config, loading")}");
+            API.Logger.VerboseDebug($"{(Config_Reference.Config_Loaded is null ? $"[{BID_VarRef.ModName}]: (Config_LoadDisk) Found no '{API.Side}' config, creating new" : $"[{BID_VarRef.ModName}]: (Config_LoadDisk) Found '{API.Side}' config, loading")}");
             Config_ResetIfError(); Config_Validate(); Config_ModCompat();
 
-            API.Logger.Debug("[{0}]: (Config_LoadDisk) Complete", [BID_VarRef.ModName]);
+            API.Logger.VerboseDebug("[{0}]: (Config_LoadDisk) Complete", [BID_VarRef.ModName]);
         }
 
 
         internal static void Config_LoadWorld()
         {
             var Config_LoadedBase64 = API.World.Config.GetString(Config_Reference.Config_FilePath);
-            if (string.IsNullOrWhiteSpace(Config_LoadedBase64)) { Config_Reference.Config_Loaded = new Config_Reference(); Config_Validate(); API.Logger.Debug("[{0}]: (Config_LoadWorld) Config loaded was null or whitespace, loading default config", [BID_VarRef.ModName]); return; }
+            if (string.IsNullOrWhiteSpace(Config_LoadedBase64)) { Config_Reference.Config_Loaded = new Config_Reference(); Config_Validate(); API.Logger.VerboseDebug("[{0}]: (Config_LoadWorld) Config loaded was null or whitespace, loading default config", [BID_VarRef.ModName]); return; }
 
             var Config_LoadedSerialized = Encoding.UTF8.GetString(Convert.FromBase64String(Config_LoadedBase64));
             var Config_Repopulated = new Config_Reference();
@@ -118,14 +118,14 @@ namespace BleedingInDepth.config
             //SFX: Drip Materials
             if (Config_Reference.Config_Loaded.Config_Effect.SFX_Drip_Acc.Drip_Materials is null)
             {
-                API.Logger.Debug("[{0}]: (Config_Validate_List) Defaulted SFX_Drip.Bleed_Effect_SoundMaterials", [BID_VarRef.ModName]);
+                API.Logger.VerboseDebug("[{0}]: (Config_Validate_List) Defaulted SFX_Drip.Bleed_Effect_SoundMaterials", [BID_VarRef.ModName]);
                 Config_Reference.Config_Loaded.Config_Effect.SFX_Drip_Acc.Drip_Materials ??= [.. BID_Config_Main.Config_Effect.SFX_Drip.Default_Drip_Materials.Split(",", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
             }
 
             //BleedReport: Severity Threashold
             if (Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold is null || Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold.Count == 0)
             {
-                API.Logger.Debug("[{0}]: (Config_Validate_List) Defaulted List_BleedReport_DPS_SeverityThreashold", [BID_VarRef.ModName]);
+                API.Logger.VerboseDebug("[{0}]: (Config_Validate_List) Defaulted List_BleedReport_DPS_SeverityThreashold", [BID_VarRef.ModName]);
                 Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold = [];
                 Config_Reference.Config_Loaded.Config_BleedReport.List_BleedReport_DPS_SeverityThreashold.AddRange([
                     new BID_Config_Main.Config_BleedReport.BleedSeverityThreashold { BleedLevel = BID_Config_Main.Config_BleedReport.Default_BleedReport_DPS_Severe, Severity = "Severe" },
@@ -146,8 +146,7 @@ namespace BleedingInDepth.config
 
         internal static void Config_ResetIfError(bool hardReset = false)
         {
-            if (!string.IsNullOrWhiteSpace(Config_Reference.Config_Loaded?.ToString()) || hardReset) { return; }
-            else
+            if (string.IsNullOrWhiteSpace(Config_Reference.Config_Loaded?.ToString()) || hardReset)
             {
                 API.Logger.Error("[{0}]: (Config_LoadDefaultIfError) Config was missing, null or malformed; Loading default config", [BID_VarRef.ModName]);
                 Config_Reference.Config_Loaded = new Config_Reference();
@@ -157,8 +156,13 @@ namespace BleedingInDepth.config
 
         internal static void Config_ModCompat() //TODO: create a list with any mod that changes damageTypes to not just blunt, then check if any of the mods are loaded and apply enable damagetypes
         {//TODO: find a way to recognize if damagetypes are used (through CO or other mods) and autoset compat instead of using a list of mods
-            if (API.ModLoader.GetMod("combatoverhaul") is not null || API.ModLoader.GetMod("combatoverhaulfork") is not null)
-            { Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.UseDamageTypeCompat = true; }
+            string[] compatMods = ["combatoverhaul", "combatoverhaulfork"];
+
+            foreach (string compatMod in compatMods)
+            {
+                if (API.ModLoader.GetMod(compatMod) is not null)
+                { Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.UseDamageTypeCompat = true; break; }
+            }
         }
     }
 }

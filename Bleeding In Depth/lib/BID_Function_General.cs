@@ -1,11 +1,11 @@
-﻿using BleedingInDepth.config;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Vintagestory.API.Common;
+using BleedingInDepth.config;
 
 namespace BleedingInDepth.lib
 {
@@ -26,7 +26,7 @@ namespace BleedingInDepth.lib
             return returnValue;
         }
 
-        internal static float Calc_Curve_DoubleSigmoid(float input_x, float offset_Y0, float max1, float rate1, float offset_X1, float max2, float rate2, float offset_X2)//TODO: rename these
+        internal static float Calc_Curve_DoubleSigmoid(float input_x, float offset_Y0, float max1, float rate1, float offset_X1, float max2, float rate2, float offset_X2)
         {
             float sigmoid1 = max1 / (1f + MathF.Exp(-rate1 * (input_x - offset_X1)));
             float sigmoid2 = max2 / (1f + MathF.Exp(-rate2 * (input_x - offset_X2)));

@@ -1,5 +1,4 @@
-﻿using BleedingInDepth.handler;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -8,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Vintagestory.API.Common;
+using BleedingInDepth.handler;
 
 namespace BleedingInDepth.config
 {
@@ -35,7 +35,7 @@ namespace BleedingInDepth.config
                 public const bool Default_BleedCanKill_Internal = true;
                 public bool UseDamageTypeCompat { get; set; } = Default_UseDamageTypeCompat; public string Comment_UseDamageTypeCompat => $"Default: {Default_UseDamageTypeCompat}; Toggle; Enables damageTypes to be used, otherwise all bleedable damageTypes will use slash modifiers; Will be ignored when compatible mods that modify damagetypes are found"; //TODO: remove this once vanilla impliments proper damage types per weapon
                 public const bool Default_UseDamageTypeCompat = false;
-                public bool Bleed_SlowAtLowHealth { get; set; } = Default_SlowAtLowHealth; public string Comment_SlowAtLowHealth => $"Default: {Default_SlowAtLowHealth}; Toggle; Enables bleeding dammage application to slow down when the player is at critical health levels (~3hp); Applies to both bleed types";
+                public bool Bleed_SlowAtLowHealth { get; set; } = Default_SlowAtLowHealth; public string Comment_SlowAtLowHealth => $"Default: {Default_SlowAtLowHealth}; Toggle; Enables bleeding dammage application to slow down when a player is at critical health levels (~3hp); Applies to both bleed types";
                 public const bool Default_SlowAtLowHealth = true;
                 public bool Bleed_ActivityIncreaseRate { get; set; } = Default_ActivityIncreaseRate; public string Comment_ActivityIncreaseRate => $"Default: {Default_ActivityIncreaseRate}; Toggle; Enables bleeding dammage application to speed up based on various activities; Applies to both bleed types";
                 public const bool Default_ActivityIncreaseRate = true;
@@ -85,9 +85,9 @@ namespace BleedingInDepth.config
                 [Range(0f, float.PositiveInfinity)] public float Internal_Rate { get; set; } = Default_Internal_Rate; public string Comment_Internal_Rate => $"Default: {Default_Internal_Rate}; Multiplier; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is applied to hp as damage per tick";
                 public const float Default_Internal_Rate = 0.24f;
                 [Range(0f, float.PositiveInfinity)] public float Internal_FlatHeal { get; set; } = Default_Internal_FlatHeal; public string Comment_Internal_FlatHeal => $"Default: {Default_Internal_FlatHeal}; Flat; Determines how much of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] is removed per tick";
-                public const float Default_Internal_FlatHeal = 0.0005f;
+                public const float Default_Internal_FlatHeal = 0.0004f;
                 [Range(0f, float.PositiveInfinity)] public float Internal_ScaledHeal { get; set; } = Default_Internal_ScaledHeal; public string Comment_Internal_ScaledHeal => $"Default: {Default_Internal_ScaledHeal}; Multipler; Determines % of [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_Internal)}] that is removed per tick";
-                public const float Default_Internal_ScaledHeal = 0.003f;
+                public const float Default_Internal_ScaledHeal = 0.005f;
             }
 
             public Variable_HealBonus Variable_HealBonus_Acc = new();
@@ -95,7 +95,7 @@ namespace BleedingInDepth.config
             {
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Bed { get; set; } = Default_BleedHeal_Bed; public string Comment_BleedHeal_Bed => $"Default: {Default_BleedHeal_Bed}; Multiplier; Determines how much external and internal bleed recovery [Bleed_HealRate_*] increases when laying in a bed";
                 public const float Default_BleedHeal_Bed = 3.0f;
-                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Comfort { get; set; } = Default_BleedHeal_Comfort; public string Comment_BleedHeal_Comfort => $"Default: {Default_BleedHeal_Comfort}; Multiplier; WIP; Determines how much external and internal bleed recovery [Bleed_HealRate_*] increases when sitting on a 'comfort' object";
+                [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Comfort { get; set; } = Default_BleedHeal_Comfort; public string Comment_BleedHeal_Comfort => $"Default: {Default_BleedHeal_Comfort}; Multiplier; Determines how much external and internal bleed recovery [Bleed_HealRate_*] increases when sitting on a 'comfort' object (for now this is only seats)";
                 public const float Default_BleedHeal_Comfort = 1.6f;
                 [Range(0f, float.PositiveInfinity)] public float HealBonus_BleedHeal_Ground { get; set; } = Default_BleedHeal_Ground; public string Comment_BleedHeal_Ground => $"Default: {Default_BleedHeal_Ground}; Multiplier; Determines how much external and internal bleed recovery [Bleed_HealRate_*] increases when sitting on the ground";
                 public const float Default_BleedHeal_Ground = 1.2f;
@@ -142,16 +142,16 @@ namespace BleedingInDepth.config
                 public string Comment_Bleed_InternalConversionOverview => "Determines how rapidly higher levels of damage are diverted into internal bleeding; Double Sigmoid"; //TODO: add internalcurve modifier per damage type; variable x?
                 public string Comment_Bleed_InternalConversionFormula => $"(% of damage over [{BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal}] converted) = y = Offset_Y0 + (Max1 / (1 + e^(-Rate1 * ([{BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal}] - Offset_X1)))) + (Max2 / (1 + e^(-Rate2 * ([{BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal}] - Offset_X2))))";
                 public float InternalConversion_Offset_Y0 { get; set; } = Default_InternalConversion_Offset_Y0; public string Comment_InternalConversion_Offset_Y0 => $"Default: {Default_InternalConversion_Offset_Y0}; Curve mod; See formula";
-                public const float Default_InternalConversion_Offset_Y0 = 8.0f;
+                public const float Default_InternalConversion_Offset_Y0 = 5.0f;
                 public float InternalConversion_Max1 { get; set; } = Default_InternalConversion_Max1; public string Comment_InternalConversion_Max1 => $"Default: {Default_InternalConversion_Max1}; Curve mod; See formula";
-                public const float Default_InternalConversion_Max1 = 5.0f;
+                public const float Default_InternalConversion_Max1 = 6.0f;
                 public float InternalConversion_Rate1 { get; set; } = Default_InternalConversion_Rate1; public string Comment_InternalConversion_Rate1 => $"Default: {Default_InternalConversion_Rate1}; Curve mod; See formula";
-                public const float Default_InternalConversion_Rate1 = 0.75f;
+                public const float Default_InternalConversion_Rate1 = 0.6f;
                 public float InternalConversion_Offset_X1 { get; set; } = Default_InternalConversion_Offset_X1; public string Comment_InternalConversion_Offset_X1 => $"Default: {Default_InternalConversion_Offset_X1}; Curve mod; See formula";
                 public const float Default_InternalConversion_Offset_X1 = 2.3f;
 
                 public float InternalConversion_Max2 { get; set; } = Default_InternalConversion_Max2; public string Comment_InternalConversion_Max2 => $"Default: {Default_InternalConversion_Max2}; Curve mod; See formula";
-                public const float Default_InternalConversion_Max2 = 12.0f;
+                public const float Default_InternalConversion_Max2 = 13.0f;
                 public float InternalConversion_Rate2 { get; set; } = Default_InternalConversion_Rate2; public string Comment_InternalConversion_Rate2 => $"Default: {Default_InternalConversion_Rate2}; Curve mod; See formula";
                 public const float Default_InternalConversion_Rate2 = 0.2f;
                 public float InternalConversion_Offset_X2 { get; set; } = Default_InternalConversion_Offset_X2; public string Comment_InternalConversion_Offset_X2 => $"Default: {Default_InternalConversion_Offset_X2}; Curve mod; See formula";
@@ -193,8 +193,8 @@ namespace BleedingInDepth.config
                 public string Comment_PerDamageTypeExplained => "Different DamageTypes each have a config that determines how much damage is dealt as direct health reduciton and how much is converted to bleed DOT. If damage type is not listed it is not supported by default, though you should be able to add any to the config if it follows vintage story's EnumDamageSource.Type";
                 public string Comment_PerDamageType_Direct_Multi => "Multiplier; Determines % of [DamageType] damage taken that is applied directly to health";
                 public string Comment_PerDamageType_Bleed_Multi_External => "Multiplier; Determines % of [DamageType] damage taken that is converted to bleed";
-                public string Comment_PerDamageType_Bleed_Multi_Internal => "Curve; WIP; How effective [DamageType] is at diverting to internal bleeding from regular bleed damage. This only applies to damage over [DamageType][Bleed_ConversionThreshold_Internal]; Set to 0 to convert ALL bleed over the start value"; //wolf hits in vanilla do 8 damage to unarmored; bears do 10. the initial bleed modifier [DamageMultiplier_(DamageType)_Bleed] will reduce this so this value needs to take that into account
-                public string Comment_PerDamageType_Bleed_ConversionThreshold_Internal => $"Flat; Determines the damage delt in a single hit multiplied by [{nameof(BID_Handle_Entity.EntityBehavior_Bleed.Bleed_CurrentLevel_External)}] minimum before internal bleeding conversion curve starts. Internal bleed curve only takes the damage past this threshold into account; If [DamageType][Bleed_Multi_Internal] is 0 the applied damage converted to internal bleed will be reduced by this amount";
+                public string Comment_PerDamageType_Bleed_Multi_Internal => "Curve; How effective [DamageType] is at diverting to internal bleeding from regular bleed damage. This only applies to damage over [DamageType][Bleed_ConversionThreshold_Internal]; Set to 0 to convert ALL bleed over the start value istead"; //wolf hits in vanilla do 8 damage to unarmored; bears do (8, 10, 12). the initial bleed modifier [DamageMultiplier_(DamageType)_Bleed] will reduce this so this value needs to take that into account
+                public string Comment_PerDamageType_Bleed_ConversionThreshold_Internal => $"Flat; Determines the minimum direct damage applied in a single hit before internal bleeding conversion curve starts. Internal bleed curve only takes the damage past this threshold into account; If [DamageType][Bleed_Multi_Internal] is 0 the applied damage converted to internal bleed will be reduced by this amount instead";
 
                 internal static string NameOf_DamageType_DirectMulti = "Direct_Multi";
                 internal static string NameOf_DamageType_BleedMultiExternal = "Bleed_Multi_External";
@@ -236,9 +236,9 @@ namespace BleedingInDepth.config
                     public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
                     public const float Default_Bleed_Multi_External = 0.4f;
                     public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}; ";
-                    public const float Default_Bleed_Multi_Internal = 0.1f; //TODO: figure out the curve formula to use this value per DamageType
+                    public const float Default_Bleed_Multi_Internal = 0.1f;
                     public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
-                    public const float Default_Bleed_ConversionThreshold_Internal = 8.0f;
+                    public const float Default_Bleed_ConversionThreshold_Internal = 3.0f;
                 }
 
 
@@ -250,7 +250,7 @@ namespace BleedingInDepth.config
                     public string Comment_Direct_Multi => $"Default: {Default_Direct_Multi}";
                     public const float Default_Direct_Multi = 0.95f;
                     public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
-                    public const float Default_Bleed_Multi_External = 0.02f;
+                    public const float Default_Bleed_Multi_External = 0.01f;
                     public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}";
                     public const float Default_Bleed_Multi_Internal = 0.0f;
                     public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
@@ -268,9 +268,9 @@ namespace BleedingInDepth.config
                     public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
                     public const float Default_Bleed_Multi_External = 0.15f;
                     public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}";
-                    public const float Default_Bleed_Multi_Internal = 0.7f;
+                    public const float Default_Bleed_Multi_Internal = 0.8f;
                     public string Comment_Bleed_ConversionThreshold_Internal => $"Default: {Default_Bleed_ConversionThreshold_Internal}";
-                    public const float Default_Bleed_ConversionThreshold_Internal = 3.0f;
+                    public const float Default_Bleed_ConversionThreshold_Internal = 1.5f;
                 }
             }
 
@@ -281,7 +281,7 @@ namespace BleedingInDepth.config
                 public class EntityCategory_Info
                 {
                     public string Comment_EntityCategory_Title => "-------------------- Entity Type Toggles --------------------";
-                    public string Comment_PerEntityCategoryExplained => "Each entity falls into one of 4 categories. Each category multiplies the damage and bleed of bleedable DamageTypes (see Config_DamageType) an entity recieves when damaged; used to make certain entities more or less resistant to that DamageType";
+                    public string Comment_PerEntityCategoryExplained => "Entitys are matched based on their in game tags to the list in the config. If they match a tag in the config list, they will have all modifiers in that tag applied to their damage and bleed application";
                     public string Comment_PerEntityCategoryColor => "WIP; Entity category types can be given a blood color in % of HSVA";
                 }
 
@@ -378,7 +378,7 @@ namespace BleedingInDepth.config
                 {
                     public string Comment_Identifier => "-------------------- Mechanical Defaults: See PerEntityCategory comments --------------------";
                     [Range(0, float.MaxValue)] private float Direct_Multi { get; set; } = Default_Direct_Multi; public string Comment_Direct_Multi => $"Default: {Default_Direct_Multi}";
-                    public const float Default_Direct_Multi = 1.0f;
+                    public const float Default_Direct_Multi = 1.3f;
                     [Range(0, float.MaxValue)] private float Bleed_Multi_External { get; set; } = Default_Bleed_Multi_External; public string Comment_Bleed_Multi_External => $"Default: {Default_Bleed_Multi_External}";
                     public const float Default_Bleed_Multi_External = 0.3f;
                     [Range(0, float.MaxValue)] private float Bleed_Multi_Internal { get; set; } = Default_Bleed_Multi_Internal; public string Comment_Bleed_Multi_Internal => $"Default: {Default_Bleed_Multi_Internal}";
@@ -418,7 +418,7 @@ namespace BleedingInDepth.config
             public string Comment_BleedReport_DPS_Minor => $"Default: {Default_BleedReport_DPS_Minor}";
             public const float Default_BleedReport_DPS_Minor = 0.03f;
             public string Comment_BleedReport_DPS_Trivial => $"Default: {Default_BleedReport_DPS_Trivial}";
-            public const float Default_BleedReport_DPS_Trivial = 0.01f;
+            public const float Default_BleedReport_DPS_Trivial = 0f;
         }
 
 
