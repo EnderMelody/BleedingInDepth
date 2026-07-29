@@ -13,9 +13,13 @@ namespace BleedingInDepth.handler
     {
         private static ICoreAPI API = BID_VarRef.API;
 
+        //Frozen Dicts
+        internal static FrozenDictionary<EnumDamageType, Dictionary<string, float>>? DamageType_Dict_ConfigCache;
+
+
         internal static void Dicitionary_Freeze()
         {
-            BID_Handle_Bleed.DamageType_Dict_ConfigCache = Config_Reference.Config_Loaded.Config_TypeModifier.TypeMod_Damage_Acc.Dict_DamageType.ToFrozenDictionary();
+            DamageType_Dict_ConfigCache = Config_Reference.Config_Loaded.Config_TypeModifier.TypeMod_Damage_Acc.Dict_DamageType.ToFrozenDictionary();
         }
     }
 }

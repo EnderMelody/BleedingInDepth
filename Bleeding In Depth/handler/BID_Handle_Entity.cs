@@ -1,17 +1,14 @@
-﻿using BleedingInDepth.config;
-using BleedingInDepth.lib;
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.Client;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
+using BleedingInDepth.config;
+using BleedingInDepth.lib;
 
 namespace BleedingInDepth.handler
 {
@@ -26,15 +23,17 @@ namespace BleedingInDepth.handler
         {
             public override string PropertyName() { return "bleed"; }
 
+            //server
             internal DamageSource? LastBleedSource;
             internal float AppliedDamage_Base;
             internal float Health_PreDamage;
             internal float DeltaTime_Sum;
-            internal float DeltaTime_LastHit;
+            internal float DeltaTime_LastHit; //TODO: remove once care animation is implemented
+            internal Dictionary<string, float>? CategoryType_Dict;
+            internal List<float> AttackedDirection_List = [];
+            //client
             internal int TickCounter;
             internal bool WasAlive_Client;
-            internal FrozenDictionary<string, float>? CategoryType_Dict;
-            internal List<float> AttackedDirection_List = [];
 
 
             //synced states
@@ -178,8 +177,9 @@ namespace BleedingInDepth.handler
                         {
                             if (entity is EntityPlayer entityPlayer && ((IServerPlayer)entityPlayer.Player).ConnectionState != EnumClientState.Playing) { return; }
 
-                            if (DeltaTime_Sum < Config_Reference.Config_Loaded.Config_TimeScale.DeltaTime_SumRequired_BleedRate) { DeltaTime_Sum += deltaTime; return; }
-                            BleedHandle_Server_OnTick?.Invoke(entity, DeltaTime_Sum);
+                            DeltaTime_Sum += deltaTime;
+                            if (DeltaTime_Sum < Config_Reference.Config_Loaded.Config_TimeScale.DeltaTime_SumRequired_BleedRate) { return; }
+                            if (Bleed_CurrentLevel_External > 0f || Bleed_CurrentLevel_Internal > 0f) { BleedHandle_Server_OnTick?.Invoke(entity, DeltaTime_Sum); }
                             DeltaTime_Sum = 0f;
                             break;
                         }

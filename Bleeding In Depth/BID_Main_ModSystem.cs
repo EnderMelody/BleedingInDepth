@@ -1,11 +1,11 @@
 ﻿using System;
-using BleedingInDepth.config;
-using BleedingInDepth.handler;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.CommandAbbr;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
+using BleedingInDepth.config;
+using BleedingInDepth.handler;
 
 namespace BleedingInDepth
 {
@@ -20,7 +20,7 @@ namespace BleedingInDepth
             BID_VarRef.API ??= api; //KEEP THIS FIRST
 
             try { BID_Config_Manager.Config_Conjure(); }
-            catch (Exception ex) { api.Logger.Error("[{0}]: (Config_Conjure) Exception caught: {1}", [BID_VarRef.ModName, ex.Message]); Config_Reference.Config_Loaded = new Config_Reference(); }
+            catch (Exception ex) { api.Logger.Error("[{0}]: (Config_Conjure) Exception caught: {1}", [BID_VarRef.ModName_Trunc, ex.Message]); Config_Reference.Config_Loaded = new Config_Reference(); BID_Config_Manager.Config_ResetIfError(); }
             
             isConfigLoadSuccessful = !string.IsNullOrWhiteSpace(Config_Reference.Config_Loaded?.ToString());
         }

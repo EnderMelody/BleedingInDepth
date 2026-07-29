@@ -52,11 +52,12 @@ namespace BleedingInDepth.handler
 
             internal static TextCommandResult Command_ReloadConfig(TextCommandCallingArgs args)
             {
-                Config_Reference.Config_Loaded = null;
+                BID_Config_Manager.Config_Unload();
                 BID_Config_Manager.Config_Conjure();
 
                 Config_Reference.Config_Loaded ??= new Config_Reference();
                 BID_Handle_Entity.BleedHandle_SubscribeEvent();
+                BID_Handle_Collection.Dicitionary_Freeze();
 
                 return TextCommandResult.Success("Reloaded Config");
             }

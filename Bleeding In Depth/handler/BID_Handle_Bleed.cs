@@ -1,18 +1,14 @@
-﻿using BleedingInDepth.config;
-using BleedingInDepth.lib;
-using System;
-using System.Collections.Frozen;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
+using BleedingInDepth.config;
+using BleedingInDepth.lib;
 
 namespace BleedingInDepth.handler
 {
@@ -22,12 +18,10 @@ namespace BleedingInDepth.handler
         //private static ICoreClientAPI API_Client = BID_VarRef.API_Client;
         //private static ICoreServerAPI API_Server = BID_VarRef.API_Server;
 
-        internal static FrozenDictionary<EnumDamageType, Dictionary<string, float>>? DamageType_Dict_ConfigCache;
-
 
 
         /// <summary>
-        /// called on entity BehaviorBleed.OnEntityReceiveDamage;
+        /// called on entity BehaviorHealth.onDamaged; Pre-armor;
         /// performs damagetype checks -> stores values to be used in post-armor bleed conversion -> reduces direct damage applied and resumes vanilla logic
         /// </summary>
         /// <param name="entity">the entity that recieved damage</param>
@@ -51,7 +45,7 @@ namespace BleedingInDepth.handler
             if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.UseDamageTypeCompat is false && Config_Reference.Config_Loaded.Config_TypeModifier?.TypeMod_Damage_Acc?.Dict_DamageType?.ContainsKey(damageSource.Type) == true)//TODO: remove... eventually
             { damageSource.Type = EnumDamageType.SlashingAttack; } //if vanilla updates attacks to use DamageTypes, this toggle will allow the system to use per DamageType values without requiring me to update the mod immediately
 
-            if (DamageType_Dict_ConfigCache?.TryGetValue(damageSource.Type, out var DamageType_OuterDict) is not true) { BID_Function_General.Log_Debug("Dict_DamageType was null or missing damageType: {0}", loggers: [damageSource.Type]); return appliedDamage; }
+            if (BID_Handle_Collection.DamageType_Dict_ConfigCache?.TryGetValue(damageSource.Type, out var DamageType_OuterDict) is not true) { BID_Function_General.Log_Debug("Dict_DamageType was null or missing damageType: {0}", loggers: [damageSource.Type]); return appliedDamage; }
             if (DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti, out var _) is not true || DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal, out var _) is not true)
             { BID_Function_General.Log_Debug("Dict_DamageType does not contain innerdict value(s) within Dict_DamageType: {0}", loggers: [damageSource.Type]); return appliedDamage; } //dont check for internal bleed mods as DamageTypes can not have internal bleeding. Instead skip applying internal if missing
 
@@ -77,7 +71,7 @@ namespace BleedingInDepth.handler
                         [BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_DamageMod_Bleed_Internal] = 1f, [BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_Effect_Particle_Color] = 0f };
                 }
                 else { BID_Function_General.Log_Debug("{0} successfully matched categoryType: {1}", loggers: [entity.GetPrefixAndCreatureName(), entity_CategoryType]); }
-                entity_BehaviorBleed.CategoryType_Dict = entityCategoryDict.ToFrozenDictionary();
+                entity_BehaviorBleed.CategoryType_Dict = entityCategoryDict.ToDictionary();
             }
 
 
@@ -85,7 +79,7 @@ namespace BleedingInDepth.handler
             entity_BehaviorBleed.Health_PreDamage = entity_BehaviorHealth.Health + entity_BehaviorBleed.AppliedDamage_Base;
             entity_BehaviorBleed.AppliedDamage_Base += appliedDamage;
             entity_BehaviorBleed.LastBleedSource = damageSource;
-            float returnedDamage = MathF.Round(MathF.Max(appliedDamage * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti] * entity_BehaviorBleed.CategoryType_Dict[BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_DamageMod_Direct], 0.0f), 4);
+            float returnedDamage = MathF.Round(MathF.Max(appliedDamage * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti] * entity_BehaviorBleed.CategoryType_Dict[BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_DamageMod_Direct], 0f), 4);
             BID_Function_General.Log_Debug("Stored [health_PreDamage: {0}; appliedDamage_Base: {1} lastBleedSource.Type: {2}]", loggers: [entity_BehaviorBleed.Health_PreDamage, entity_BehaviorBleed.AppliedDamage_Base, entity_BehaviorBleed.LastBleedSource.Type]);
 
             return returnedDamage;
@@ -93,7 +87,7 @@ namespace BleedingInDepth.handler
 
 
         /// <summary>
-        /// called on entity BehaviorBleed.OnGameTick;
+        /// called on entity BehaviorBleed.OnEntityReceiveDamage; Post-armor;
         /// compare health before and after armor damage reduction -> calculate actual damage taken -> calculate and apply Bleed_CurrentLevel_External/Internal increases
         /// </summary>
         /// <param name="entity">the entity that recieved damage</param>
@@ -103,52 +97,60 @@ namespace BleedingInDepth.handler
             //applicable verification
             if (entity.GetBehavior<EntityBehaviorHealth>() is not EntityBehaviorHealth entity_BehaviorHealth || entity.GetBehavior<BID_Handle_Entity.EntityBehavior_Bleed>() is not BID_Handle_Entity.EntityBehavior_Bleed entity_BehaviorBleed)
             { BID_Function_General.Log_Debug("Entity was missing BehaviorHealth or BehaviorBleed: {0}", loggers: [entity.GetName() ?? entity.GetPrefixAndCreatureName() ?? "null entity"]); return; }
-            if (!(entity_BehaviorBleed.LastBleedSource is not null && entity_BehaviorBleed.AppliedDamage_Base is not 0f)) { return; }
+            if (entity_BehaviorBleed.LastBleedSource is null || entity_BehaviorBleed.AppliedDamage_Base is not > 0f) { return; }
 
-            if (Config_Reference.Config_Loaded.Config_TypeModifier?.TypeMod_Damage_Acc?.Dict_DamageType?.TryGetValue(entity_BehaviorBleed.LastBleedSource.Type, out var DamageType_OuterDict) is not true) { BID_Function_General.Log_Debug("Dict_DamageType was null or missing damageType: {0}", loggers: [entity_BehaviorBleed.LastBleedSource.Type]); return; }//redeclare dict in case another entity calls bleed conversion in the same tick
+            if (BID_Handle_Collection.DamageType_Dict_ConfigCache?.TryGetValue(entity_BehaviorBleed.LastBleedSource.Type, out var DamageType_OuterDict) is not true) { BID_Function_General.Log_Debug("Dict_DamageType was null or missing damageType: {0}", loggers: [entity_BehaviorBleed.LastBleedSource.Type]); return; }//redeclare dict in case another entity calls bleed conversion in the same tick
             if (DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti, out var _) is not true || DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal, out var _) is not true)
             { BID_Function_General.Log_Debug("Dict_DamageType does not contain innerdict value(s) within Dict_DamageType: {0}", loggers: [entity_BehaviorBleed.LastBleedSource.Type]); return; } //dont check for internal bleed mods as DamageTypes can not have internal bleeding. Instead skip applying internal if missing
 
             float bleedToApply_External = 0f;
             float bleedToApply_Internal = 0f;
 
-            float damageTaken_PreArmor = entity_BehaviorBleed.AppliedDamage_Base * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti];
-            float damageTaken_PostArmor = entity_BehaviorBleed.Health_PreDamage - entity_BehaviorHealth.Health;
-            float damageReduced_ByArmor = damageTaken_PostArmor / damageTaken_PreArmor;
+            float damageTaken_PreArmor = entity_BehaviorBleed.AppliedDamage_Base * MathF.Max(DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_DirectMulti], 0f);
+            float damageTaken_PostArmor = MathF.Max(entity_BehaviorBleed.Health_PreDamage - entity_BehaviorHealth.Health, 0f);
+            float damageReduced_ByArmor_Percent = Math.Clamp(damageTaken_PostArmor / damageTaken_PreArmor, 0f, 1f);
 
-            float damage_ToConvert = (entity_BehaviorBleed.AppliedDamage_Base * damageReduced_ByArmor) + ((1f + Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_ArmorPierce) * (damageTaken_PreArmor - damageTaken_PostArmor) * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal]);
+            float damage_ToConvert = (entity_BehaviorBleed.AppliedDamage_Base * damageReduced_ByArmor_Percent) + MathF.Max(Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_ArmorPierce * (damageTaken_PreArmor - damageTaken_PostArmor), 0f);
 
 
             //calc bleed to apply
             //external bleed
-            bleedToApply_External = MathF.Round(MathF.Max(damage_ToConvert * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal], 0f), 4);
+            bleedToApply_External = MathF.Max(0f, damage_ToConvert * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal] * entity_BehaviorBleed.CategoryType_Dict[BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_DamageMod_Bleed_External]);
 
             //internal bleed
-            if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_Internal)
-            {
-                if (DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiInternal, out var _) is true && DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal, out var _) is true)
-                {
+            if (!Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_Internal)
+            { BID_Function_General.Log_Debug_Verbose("Bleed_Internal is disabled in config"); }
+            else {
+                if (DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiInternal, out var _) is not true || DamageType_OuterDict?.TryGetValue(BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal, out var _) is not true)
+                { BID_Function_General.Log_Debug_Verbose("Dict_DamageType does not contain internal bleed values and is invalid for DamageType: {0}", loggers: [entity_BehaviorBleed.LastBleedSource.Type]); }
+                else {
                     if (DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiInternal] == 0f) //if [Bleed_Multi_Internal] is 0 all external bleed applied is converted directly into internal 
                     {
-                        bleedToApply_Internal = MathF.Round(MathF.Max(bleedToApply_External - (DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal] * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal]), 0f), 4);
+                        bleedToApply_Internal = MathF.Round(MathF.Max(0f, bleedToApply_External - (DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal] * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal])), 4);
                         bleedToApply_External = 0;
                     }
                     else if (damage_ToConvert > DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal])
                     {
-                        float curve_Output = BleedDamage_InternalBleedCurve((damage_ToConvert - DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal]) * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal]) * 0.01f;
-                        bleedToApply_Internal = bleedToApply_External * curve_Output;
+                        float curve_Output = BleedDamage_InternalBleedCurve((entity_BehaviorBleed.AppliedDamage_Base - DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal]) * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiExternal]) * 0.01f;
+                        bleedToApply_Internal = bleedToApply_External * MathF.Min(bleedToApply_External, curve_Output * DamageType_OuterDict[BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedMultiInternal] * entity_BehaviorBleed.CategoryType_Dict[BID_Config_Main.Config_TypeModifier.TypeMod_Entity.NameOf_EntityCategory_DamageMod_Bleed_Internal]);
                         bleedToApply_External -= bleedToApply_Internal;
-                    } else { BID_Function_General.Log_Debug_Verbose("Damage did not surpass [{0}]", loggers: [BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal]); }
-                } else { BID_Function_General.Log_Debug_Verbose("Dict_DamageType does not contain internal bleed values and is invalid for DamageType: {0}", loggers: [entity_BehaviorBleed.LastBleedSource.Type]); }
-            }  else { BID_Function_General.Log_Debug_Verbose("Bleed_Internal is disabled in config"); }
+                    }
+                    else { BID_Function_General.Log_Debug_Verbose("Damage did not surpass [{0}]", loggers: [BID_Config_Main.Config_TypeModifier.TypeMod_Damage.NameOf_DamageType_BleedConversionThresholdInternal]); }
+                }
+            }
 
             //apply bleed
+            if (entity.HasBehavior<EntityBehaviorRideable>()) { bleedToApply_External *= 0.75f; bleedToApply_Internal *= 0.75f; }//TODO: remove once players are able to bandage other entitys
             entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 2, false); entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 3, false);
             entity_BehaviorBleed.Bleed_CurrentLevel_External += (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_External ? bleedToApply_External : 0f);
-            entity_BehaviorBleed.Bleed_CurrentLevel_Internal += bleedToApply_Internal;
+            entity_BehaviorBleed.Bleed_CurrentLevel_Internal += (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_Internal ? bleedToApply_Internal : 0f);
             if (Config_Reference.Config_Loaded.Config_BleedReport.BleedReport_NotifyOnHit && entity is EntityPlayer entityPlayer) { BleedDamage_NotifyOnHit(entityPlayer, bleedToApply_External, bleedToApply_Internal); }
-            BID_Function_General.Log_Debug("Applied {0} damage, {1} Bleed_External and {2} Bleed_Internal to {3} from {4} which dealt {5} base damage of {6} DamageType",
-                loggers: [entity_BehaviorBleed.Health_PreDamage - entity_BehaviorHealth.Health, bleedToApply_External, bleedToApply_Internal, entity.GetName() ?? entity.GetPrefixAndCreatureName(), entity_BehaviorBleed.LastBleedSource.CauseEntity?.GetPrefixAndCreatureName() ?? entity_BehaviorBleed.LastBleedSource.SourceEntity?.GetPrefixAndCreatureName() ?? "null", entity_BehaviorBleed.AppliedDamage_Base, entity_BehaviorBleed.LastBleedSource.Type]);
+            BID_Function_General.Log_Debug("Applied (damage_PostArmor: {0}, Bleed_External: {1}, Bleed_Internal: {2})" +
+                " to {3} from {4};" +
+                " appliedDamage_Base: {5}, PreArmor: {6}, DamageType: {7}",
+                loggers: [damageTaken_PostArmor, bleedToApply_External, bleedToApply_Internal,
+                    entity.GetName() ?? entity.GetPrefixAndCreatureName(), entity_BehaviorBleed.LastBleedSource.CauseEntity?.GetPrefixAndCreatureName() ?? entity_BehaviorBleed.LastBleedSource.SourceEntity?.GetPrefixAndCreatureName() ?? "null entity",
+                    entity_BehaviorBleed.AppliedDamage_Base, damageTaken_PreArmor, entity_BehaviorBleed.LastBleedSource.Type]);
 
             //reset values
             entity_BehaviorBleed.Health_PreDamage = 0f;
@@ -199,16 +201,15 @@ namespace BleedingInDepth.handler
         /// <param name="deltaTimeSum">the total time passed since the last OnGameTick was called</param>
         internal static void BleedDamage_Tick(Entity entity, float deltaTime_Sum)
         {
-            if (deltaTime_Sum < Config_Reference.Config_Loaded.Config_TimeScale.DeltaTime_SumRequired_BleedRate) { return; }
             if (entity.GetBehavior<BID_Handle_Entity.EntityBehavior_Bleed>() is not BID_Handle_Entity.EntityBehavior_Bleed entity_BehaviorBleed || entity.GetBehavior<EntityBehaviorHealth>() is not EntityBehaviorHealth entity_BehaviorHealth) { return; }
             EntityPlayer? entityPlayer = entity as EntityPlayer;
+            if (entity.GetBehavior<EntityBehaviorMortallyWoundable>()?.HealthState == EnumEntityHealthState.MortallyWounded) { entity_BehaviorBleed.Bleed_CurrentLevel_External = 0; entity_BehaviorBleed.Bleed_CurrentLevel_Internal = 0; return; }
 
             float damageToApply = 0;
             float state_HealBonus_Resting;
             float state_BleedReduction_PressureOrCare;
             float state_BleedReduction_BandagedOrRagged;
-            bool isResting = false;
-            deltaTime_Sum *= (entity.World.Calendar.CalendarSpeedMul * entity.World.Calendar.SpeedOfTime); deltaTime_Sum /= (35f / Config_Reference.Config_Loaded.Config_TimeScale.TimeScale_BleedRate);
+            deltaTime_Sum *= Config_Reference.Config_Loaded.Config_TimeScale.TimeScale_BleedRate;
 
 
             //reductions
@@ -217,56 +218,71 @@ namespace BleedingInDepth.handler
                 if (entityPlayer.Player.WorldData.CurrentGameMode == EnumGameMode.Creative || entityPlayer.Player.WorldData.CurrentGameMode == EnumGameMode.Spectator) { entity_BehaviorBleed.Bleed_CurrentLevel_External = 0; entity_BehaviorBleed.Bleed_CurrentLevel_Internal = 0; return; }
                 if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_SlowAtLowHealth) { deltaTime_Sum *= BID_Function_General.Calc_Curve_ExpoEaseOut(entity_BehaviorHealth.Health, 0.8f, 0.8f, 0f, 0.2f); } //TODO: expose these in config
 
-                isResting = (entityPlayer.Controls.Sneak || entityPlayer.Controls.FloorSitting || entityPlayer.MountedOn is BlockEntityBed); //TODO: add confort check
-
-                entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 1, isResting);
-                if (isResting) { entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 1, true); } else { entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 1, false); }
-                state_HealBonus_Resting = entityPlayer.MountedOn is BlockEntityBed ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Bed : (entityPlayer.MountedOn is BlockEntityPie ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Comfort : (entityPlayer.Controls.FloorSitting ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Ground : 0f));
+                bool isPressure = (entityPlayer.Controls.Sneak || entityPlayer.Controls.FloorSitting || entityPlayer.MountedOn is BlockEntityBed); //TODO: add confort check
+                entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 1, isPressure);
+                float isRest;
+                if (entityPlayer.Controls.FloorSitting) { isRest = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Ground; }
+                else if (entityPlayer.MountedOn is BlockEntityBed) { isRest = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Bed; }
+                else if (entityPlayer.MountedOn is EntitySeat) { isRest = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_Comfort; }
+                else { isRest = 0f; }
+                state_HealBonus_Resting = isRest;
 
             }
-            else //TODO: add State_IsCare check once nonplayer entitys can care for bleed
+            else //TODO: add proper State_IsCare check once nonplayer entitys can care for bleed
             {
-                if (entity_BehaviorBleed.DeltaTime_LastHit > Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_DeltaTimeSum_Care)
-                { entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 0, true); }
-                else { entity_BehaviorBleed.DeltaTime_LastHit += deltaTime_Sum; entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 0, false); }
-                state_HealBonus_Resting = BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 0) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Care : 0f;
+                entity_BehaviorBleed.DeltaTime_LastHit += deltaTime_Sum;
+                BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 0, (entity_BehaviorBleed.DeltaTime_LastHit > Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_DeltaTimeSum_Care));
+                if (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 0)) { state_HealBonus_Resting = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Care; }
+                else { state_HealBonus_Resting = 0f; }
             }
-            state_BleedReduction_PressureOrCare = BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 1) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Pressure : (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 0) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Care : 0f);
-            state_BleedReduction_BandagedOrRagged = BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 3) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Bandage : (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 2) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Rag : 0f);
+
+            //flag sets
+            {
+                float pressureOrCare; float bandagedOrRagged;
+                if (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 1)) { pressureOrCare = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Pressure; }
+                else if (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 0)) { pressureOrCare = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Care; }
+                else pressureOrCare = 0f;
+                if (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 3)) { bandagedOrRagged = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Bandage; }
+                else if (BID_Function_General.Calc_Flag_CheckBit(entity_BehaviorBleed.State_BleedReductionFlag, 2)) { bandagedOrRagged = Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedReduction_Rag; }
+                else bandagedOrRagged = 0f;
+                state_BleedReduction_PressureOrCare = pressureOrCare;
+                state_BleedReduction_BandagedOrRagged = bandagedOrRagged;
+            }
 
             //activity
-            if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_ActivityIncreaseRate) //TODO: apply a curve instead so values target a peak value (in config); replace toggle with max multiplier and set to 1.0 to disable
+            if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.Bleed_ActivityIncreaseRate) //TODO: apply a curve instead so values target a peak value (in config); replace toggle with max multiplier and set to <=1.0 to disable
             {
-                float entity_ActivityMulti = 1f; bool entity_IsPressure = false;
+                float entity_ActivityMulti = 1f;
                 if (entityPlayer is not null) //AcitivityMulti for player specific actions
                 {
                     entity_ActivityMulti += (entityPlayer.Controls.Sprint) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_Activity_Acc.ActivityMulti_Sprint : 0f;
                     entity_ActivityMulti += (entityPlayer.Controls.LeftMouseDown) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_Activity_Acc.ActivityMulti_Hit : 0f;
-                    entity_IsPressure = entityPlayer.Controls.Sneak;
                 }
-                entity_ActivityMulti += (entity.Pos.Motion.HorLength() > 0 && !entity_IsPressure) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_Activity_Acc.ActivityMulti_Walk : 0f;
+                entity_ActivityMulti += (entity.Pos.Motion.HorLength() > 0) ? Config_Reference.Config_Loaded.Curve_Variable.Variable_Activity_Acc.ActivityMulti_Walk : 0f;
                 deltaTime_Sum *= entity_ActivityMulti;
             }
 
+            //bleed application
             //calc external bleed damage
             if (entity_BehaviorBleed.Bleed_CurrentLevel_External > 0f)
             {
-                float damageToAdd = entity_BehaviorBleed.Bleed_CurrentLevel_External * (deltaTime_Sum * Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_Rate / MathF.Max((state_BleedReduction_PressureOrCare + state_BleedReduction_BandagedOrRagged), 1f));
-                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanDamage_External) { damageToApply += Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanKill_External ? damageToAdd : MathF.Min(damageToAdd, MathF.Max((entity_BehaviorHealth.Health - 0.01f), 0f)); }
+                float damageToAdd = 0; float bleed_Rate_External = Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_Rate;
+                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanDamage_External) { damageToAdd = entity_BehaviorBleed.Bleed_CurrentLevel_External * (deltaTime_Sum * bleed_Rate_External / MathF.Max((state_BleedReduction_PressureOrCare + state_BleedReduction_BandagedOrRagged), 1f)); }
+                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanKill_External) { damageToApply += damageToAdd; } else { damageToApply += MathF.Min(damageToAdd, MathF.Max((entity_BehaviorHealth.Health - 0.01f), 0f)); }
                 entity_BehaviorBleed.Bleed_CurrentLevel_External -= (deltaTime_Sum * Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_FlatHeal * MathF.Max(state_HealBonus_Resting, 1f)) + (deltaTime_Sum * entity_BehaviorBleed.Bleed_CurrentLevel_External * Config_Reference.Config_Loaded.Curve_Variable.Variable_External_Acc.External_ScaledHeal);
             }
 
             //calc internal bleed damage
             if (entity_BehaviorBleed.Bleed_CurrentLevel_Internal > 0f)
             {
-                float deltaTime_Sum_Temp = deltaTime_Sum * (entityPlayer is not null ? (isResting ? 1.2f : 1f) : 1f);
-                float damageToAdd = entity_BehaviorBleed.Bleed_CurrentLevel_Internal * (deltaTime_Sum_Temp * Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_Rate / MathF.Max(0f/*TODO: add limited internal stemming check*/, 1f));
-                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanDamage_Internal) { damageToApply += Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanKill_Internal ? damageToAdd : MathF.Min(damageToAdd, MathF.Max((entity_BehaviorHealth.Health - 0.01f), 0f)); }
-                entity_BehaviorBleed.Bleed_CurrentLevel_Internal -= (deltaTime_Sum_Temp * Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_FlatHeal * MathF.Max(state_HealBonus_Resting * (entityPlayer?.Controls.FloorSitting is true ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_InternalRestBonus : 1f), 1f)) + (deltaTime_Sum_Temp * entity_BehaviorBleed.Bleed_CurrentLevel_Internal * Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_ScaledHeal);
+                if (entityPlayer is not null && state_HealBonus_Resting != 0) { deltaTime_Sum *= 1.2f; }//speeds up internal bleed application when entity is resting
+                float damageToAdd = 0; float bleed_Rate_Internal = Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_Rate;
+                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanDamage_Internal) { damageToAdd = entity_BehaviorBleed.Bleed_CurrentLevel_Internal * (deltaTime_Sum * bleed_Rate_Internal / MathF.Max(1f/*TODO: add limited internal stemming check*/, 1f)); }
+                if (Config_Reference.Config_Loaded.Config_System.System_Damage_Acc.BleedCanKill_Internal) { damageToApply += damageToAdd; } else { damageToApply += MathF.Min(damageToAdd, MathF.Max((entity_BehaviorHealth.Health - 0.01f), 0f)); }
+                entity_BehaviorBleed.Bleed_CurrentLevel_Internal -= (deltaTime_Sum * Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_FlatHeal * MathF.Max(state_HealBonus_Resting * (entityPlayer?.MountedOn is BlockEntityBed is true ? Config_Reference.Config_Loaded.Curve_Variable.Variable_HealBonus_Acc.HealBonus_BleedHeal_InternalRestBonus : 1f), 1f)) + (deltaTime_Sum * entity_BehaviorBleed.Bleed_CurrentLevel_Internal * Config_Reference.Config_Loaded.Curve_Variable.Variable_Internal_Acc.Internal_ScaledHeal);
             }
 
             //apply all bleed damage
-            if (entity.HasBehavior<EntityBehaviorRideable>()) { damageToApply *= 0.75f; }//TODO: remove once players are able to bandage other entitys
             if (entity_BehaviorBleed.Bleed_CurrentLevel_External <= 0) { entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 3, false); entity_BehaviorBleed.State_BleedReductionFlag = BID_Function_General.Calc_Flag_SetBit(entity_BehaviorBleed.State_BleedReductionFlag, 2, false); }
             if (!entity.Alive) { entity_BehaviorBleed.Bleed_CurrentLevel_External *= 0.9f; entity_BehaviorBleed.Bleed_CurrentLevel_Internal = 0f; return; } //dead entitys can still have bleed effects so bleeding still needs to occur. reduce bleed level more to prevent dead entitys from creating excess particles
             if (entity_BehaviorHealth.Health > damageToApply) { entity_BehaviorHealth.Health -= damageToApply; }
